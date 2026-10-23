@@ -11,9 +11,6 @@ Métrix is a balance lab for game designers working in any genre: card games, MO
 
 Everything runs locally in your browser. Your data is never uploaded and there is no account to create.
 
-A professional game development solution by TreyNet Codes.
-
-> **Status:** Métrix is in private development. Steps marked *(coming soon)* are not available yet.
 
 ## How to use Métrix
 

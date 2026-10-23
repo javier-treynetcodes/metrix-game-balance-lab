@@ -84,7 +84,9 @@ function classify(canonical: string): ColumnRole {
   return { kind: 'stat', key: canonical };
 }
 
+/** Default display name of a channel: "Channel N" for numeric keys, otherwise the key capitalized. */
 function labelFor(key: string): string {
+  if (/^\d+$/.test(key)) return `Channel ${key}`;
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 

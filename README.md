@@ -52,10 +52,28 @@ Replace the example rows with your entities, one per row. Métrix only accepts C
 
 Damage channels are how Métrix models attack and defense in any genre: attack on a channel is only reduced by defense on the same channel.
 
-- Rename the template channels to whatever your game uses: `atk:1`/`def:1` can become `atk:kinetic`/`def:kinetic`. The name after the colon must match between `atk:` and `def:`.
-- Use as many channels as your game needs. Delete the columns of the ones you don't use, or add new `atk:`/`def:` pairs.
 - An entity with values in several channels has a mixed attack.
 - A channel with an `atk:` column but no `def:` column deals true damage: nothing reduces it.
+- Each channel has its own defense rule (see [step 4](#4-choose-how-defense-works-coming-soon)), so you can mix, for example, flat armor on one channel and percentage resistance on another.
+
+##### Renaming channels
+
+The template uses `1`, `2` and `3` as channel names, shown as "Channel 1", "Channel 2" and "Channel 3". Give them your game's names by editing the column headers: `atk:1` and `def:1` can become `atk:kinetic` and `def:kinetic`, shown as "Kinetic". The name after the colon must be the same in the `atk:` and `def:` columns of a channel.
+
+You will also be able to rename channels from the web without editing the file *(coming soon)*.
+
+##### Adding or removing attack and defense types
+
+There is no limit to the number of channels. To add a new type of attack and defense, add a new pair of columns to the header and fill in the values for every row:
+
+```csv
+id,name,category,cost,hp,atk:1,def:1,atk:2,def:2,atk:3,def:3,atk:4,def:4,atk:5,def:5,rate,tag:role
+```
+
+- Any name works for the new pair: `atk:4`/`def:4`, `atk:sonic`/`def:sonic`…
+- Column order does not matter. The template keeps each attack next to its defense only to make the file easier to read.
+- To use fewer channels, delete the columns you don't need. A card game may need a single channel.
+- Channels come only from the CSV: they cannot be created from the web, because every entity needs its own attack and defense values. To add a type, add its columns to the file and import it again.
 
 Common channels by genre:
 

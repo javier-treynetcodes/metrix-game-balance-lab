@@ -51,6 +51,11 @@ describe('importEntities', () => {
     expect(result.ok).toBe(true);
     expect(result.issues).toEqual([]);
     expect(result.entities).toHaveLength(4);
+    expect(result.channels).toEqual([
+      { key: '1', label: '1', mitigation: 'percent' },
+      { key: '2', label: '2', mitigation: 'percent' },
+      { key: '3', label: '3', mitigation: 'percent' },
+    ]);
   });
 
   it('reads headers case-insensitively', () => {

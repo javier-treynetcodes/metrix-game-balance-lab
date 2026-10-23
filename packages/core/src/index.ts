@@ -5,6 +5,7 @@ export {
   detectDelimiter,
   parseCsv,
   type CsvRecord,
+  type CsvSyntaxError,
   type Delimiter,
   type ParsedCsv,
 } from './csv/parseCsv';
@@ -13,6 +14,6 @@ export {
   importEntities,
   type ImportIssue,
   type ImportIssueCode,
-  type ImportOptions,
   type ImportResult,
 } from './csv/importEntities';
+export { CSV_TEMPLATE, CSV_TEMPLATE_FILE_NAME } from './csv/template';

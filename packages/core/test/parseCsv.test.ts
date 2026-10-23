@@ -42,6 +42,29 @@ describe('parseCsv', () => {
     expect(parsed.records.map((record) => record.line)).toEqual([1, 2, 4]);
   });
 
+  it('accepts empty quoted values', () => {
+    const parsed = parseCsv('a,b\n"",x\n1,""');
+    expect(parsed.records.map((record) => record.cells)).toEqual([
+      ['a', 'b'],
+      ['', 'x'],
+      ['1', ''],
+    ]);
+    expect(parsed.syntaxErrors).toEqual([]);
+  });
+
+  it('reports a quote inside an unquoted value', () => {
+    expect(parseCsv('a,b\n12" Cannon,1').syntaxErrors).toEqual([{ code: 'stray-quote', line: 2 }]);
+  });
+
+  it('reports text right after a closing quote', () => {
+    expect(parseCsv('a\n"Archer"s bow').syntaxErrors).toEqual([{ code: 'stray-quote', line: 2 }]);
+  });
+
+  it('reports an unclosed quote at the line where it starts', () => {
+    const parsed = parseCsv('a,b\n1,"open\n2,3\n4,5');
+    expect(parsed.syntaxErrors).toEqual([{ code: 'unclosed-quote', line: 2 }]);
+  });
+
   it('returns no rows for empty input', () => {
     expect(parseCsv('').records).toEqual([]);
   });

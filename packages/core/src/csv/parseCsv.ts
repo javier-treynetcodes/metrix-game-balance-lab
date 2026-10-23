@@ -6,10 +6,18 @@ export interface CsvRecord {
   line: number;
 }
 
+/** Quote problems that break the row structure of the file. */
+export interface CsvSyntaxError {
+  code: 'unclosed-quote' | 'stray-quote';
+  /** 1-based line: where the unclosed value starts, or where the stray quote is. */
+  line: number;
+}
+
 export interface ParsedCsv {
   delimiter: Delimiter;
   /** Records of raw cells, header first. Blank lines are skipped. */
   records: CsvRecord[];
+  syntaxErrors: CsvSyntaxError[];
 }
 
 const CANDIDATES: readonly Delimiter[] = [',', ';', '\t'];
@@ -39,16 +47,23 @@ export function parseCsv(input: string): ParsedCsv {
   const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const delimiter = detectDelimiter(text);
   const records: CsvRecord[] = [];
+  const syntaxErrors: CsvSyntaxError[] = [];
 
   let row: string[] = [];
   let cell = '';
-  let inQuotes = false;
+  /** start: nothing read yet · plain: unquoted text · quoted: inside quotes · closed: after the closing quote */
+  let field: 'start' | 'plain' | 'quoted' | 'closed' = 'start';
   let line = 1;
   let rowStart = 1;
+  let quoteStart = 1;
 
-  const endRow = () => {
+  const endCell = () => {
     row.push(cell);
     cell = '';
+    field = 'start';
+  };
+  const endRow = () => {
+    endCell();
     if (row.some((value) => value.trim() !== '')) {
       records.push({ cells: row, line: rowStart });
     }
@@ -57,33 +72,36 @@ export function parseCsv(input: string): ParsedCsv {
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    if (inQuotes) {
+    if (field === 'quoted') {
       if (char === '"') {
         if (text[i + 1] === '"') {
           cell += '"';
           i++;
         } else {
-          inQuotes = false;
+          field = 'closed';
         }
       } else {
         if (char === '\n') line++;
         cell += char;
       }
-    } else if (char === '"') {
-      inQuotes = true;
     } else if (char === delimiter) {
-      row.push(cell);
-      cell = '';
+      endCell();
     } else if (char === '\n' || char === '\r') {
       if (char === '\r' && text[i + 1] === '\n') i++;
       endRow();
       line++;
       rowStart = line;
+    } else if (char === '"' && field === 'start') {
+      field = 'quoted';
+      quoteStart = line;
     } else {
+      if (char === '"' || field === 'closed') syntaxErrors.push({ code: 'stray-quote', line });
+      field = 'plain';
       cell += char;
     }
   }
-  if (cell !== '' || row.length > 0) endRow();
+  if (field === 'quoted') syntaxErrors.push({ code: 'unclosed-quote', line: quoteStart });
+  if (field !== 'start' || row.length > 0) endRow();
 
-  return { delimiter, records };
+  return { delimiter, records, syntaxErrors };
 }

@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 
 # Build output and caches
 dist/
@@ -31,7 +30,7 @@ service-account*.json
 # Logs
 logs/
 *.log
-pnpm-debug.log*
+npm-debug.log*
 
 # AI assistants: instructions, memory and local settings
 CLAUDE.md

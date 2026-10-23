@@ -19,12 +19,14 @@ Everything runs locally in your browser. Your data is never uploaded and there i
 Open Métrix and choose **Download template** or **Copy template**. The template is a CSV file with the header and a few invented example rows:
 
 ```csv
-id,name,category,cost,hp,atk:physical,atk:magic,def:physical,def:magic,rate,tag:role
-guardian,Stone Guardian,champion,4800,680,55,0,48,40,0.65,tank
-archer,Wind Archer,champion,4500,560,68,0,26,30,0.72,marksman
-sorcerer,Eclipse Sorcerer,champion,4600,540,0,85,22,32,0.62,mage
-duelist,Arcane Duelist,champion,4700,600,42,38,32,34,0.69,fighter
+id,name,category,cost,hp,atk:1,def:1,atk:2,def:2,atk:3,def:3,rate,tag:role
+heavy,Heavy Unit,unit,4800,680,55,48,0,40,0,20,0.65,tank
+ranged,Ranged Unit,unit,4500,560,68,26,0,30,10,15,0.72,ranged
+hybrid,Hybrid Unit,unit,4700,600,42,32,38,34,0,25,0.69,hybrid
+fast,Fast Unit,unit,4200,480,30,22,0,24,35,10,1.1,striker
 ```
+
+The template comes with three generic damage channels, `1`, `2` and `3`, each attack next to its defense. Rename them after your game (see [Damage channels](#damage-channels)), and add or remove channels as needed.
 
 ### 2. Fill it with your catalog
 
@@ -32,22 +34,59 @@ Replace the example rows with your entities, one per row. Métrix only accepts C
 
 | Column | Required | What to put |
 | --- | --- | --- |
-| `id` | Yes | A unique identifier without spaces, e.g. `stone-guardian`. |
+| `id` | Yes | A unique identifier without spaces, e.g. `heavy-unit`. |
 | `name` | Yes | The display name. |
-| `category` | No | A group such as `champion`, `card` or `unit`. |
+| `category` | No | A group such as `unit`, `card`, `champion` or `weapon`. |
 | `cost` | No | Gold, mana, level… Needed for the cost/power curve. |
 | `hp` | No | Health. Needed for duels. |
-| `atk:<channel>` | No | Attack on a damage channel, e.g. `atk:physical`. Several channels with values make a mixed attack. |
+| `atk:<channel>` | No | Attack on a damage channel, e.g. `atk:1` or `atk:plasma`. Several channels with values make a mixed attack. |
 | `def:<channel>` | No | Defense against that channel. A channel without a `def:` column deals true damage. |
 | `rate` | No | Attacks per second or per turn. Defaults to 1. |
-| `tag:<name>` | No | Text labels, e.g. `tag:role` with `tank` or `mage`. |
+| `tag:<name>` | No | Text labels, e.g. `tag:role` with `tank` or `ranged`, or `tag:faction`. |
 | Any other column | No | Extra numeric stats (speed, range…). |
 
-**Damage channels** are how Métrix models attack and defense in any genre: attack on a channel is only reduced by defense on the same channel. Name them after your game, for example `physical`/`magic` in a MOBA, `ballistic`/`energy` in a shooter, or `combat`/`spell` in a card game.
+#### Damage channels
+
+Damage channels are how Métrix models attack and defense in any genre: attack on a channel is only reduced by defense on the same channel.
+
+- An entity with values in several channels has a mixed attack.
+- A channel with an `atk:` column but no `def:` column deals true damage: nothing reduces it.
+- Each channel has its own defense rule (see [step 4](#4-choose-how-defense-works-coming-soon)), so you can mix, for example, flat armor on one channel and percentage resistance on another.
+
+##### Renaming channels
+
+The template uses `1`, `2` and `3` as channel names, shown as "Channel 1", "Channel 2" and "Channel 3". Give them your game's names by editing the column headers: `atk:1` and `def:1` can become `atk:kinetic` and `def:kinetic`, shown as "Kinetic". The name after the colon must be the same in the `atk:` and `def:` columns of a channel.
+
+You will also be able to rename channels from the web without editing the file *(coming soon)*.
+
+##### Adding or removing attack and defense types
+
+There is no limit to the number of channels. To add a new type of attack and defense, add a new pair of columns to the header and fill in the values for every row:
+
+```csv
+id,name,category,cost,hp,atk:1,def:1,atk:2,def:2,atk:3,def:3,atk:4,def:4,atk:5,def:5,rate,tag:role
+```
+
+- Any name works for the new pair: `atk:4`/`def:4`, `atk:sonic`/`def:sonic`…
+- Column order does not matter. The template keeps each attack next to its defense only to make the file easier to read.
+- To use fewer channels, delete the columns you don't need. A card game may need a single channel.
+- Channels come only from the CSV: they cannot be created from the web, because every entity needs its own attack and defense values. To add a type, add its columns to the file and import it again.
+
+Common channels by genre:
+
+| Genre | Typical channels |
+| --- | --- |
+| MOBA, action RPG | `physical`, `magic` |
+| Shooter | `ballistic`, `energy` |
+| Sci-fi | `kinetic`, `plasma`, `emp` |
+| Strategy | `pierce`, `blunt`, `siege` |
+| Card game | `combat`, `spell` |
+| RPG | `slash`, `elemental` |
+| Tower defense | `ground`, `air` |
 
 Tips:
 
-- Wrap text that contains commas in double quotes: `"Archer, the Swift"`.
+- Wrap text that contains commas in double quotes: `"Ranged Unit, Elite"`.
 - Empty `atk:` and `def:` cells count as 0. An empty `cost` or `hp` leaves the entity out of the curve or the duels.
 - Files using `;` as separator (common in Spanish or German spreadsheets) are detected automatically, and decimal commas such as `0,65` are accepted.
 
@@ -89,9 +128,9 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 
 | Error | Example | Fix |
 | --- | --- | --- |
-| More cells than the header | `archer,Archer, the Swift,4500` | Text that contains the separator must be wrapped in double quotes: `archer,"Archer, the Swift",4500`. |
-| Fewer cells than the header | `archer,Wind Archer` when the header has 11 columns | Every row needs one cell per column. Keep the separators of empty cells: `archer,Wind Archer,,,,,,,,,`. |
-| Quote never closed | `archer,"Wind Archer,4500` | Add the closing quote: `archer,"Wind Archer",4500`. |
+| More cells than the header | `ranged,Ranged Unit, Elite,4500` | Text that contains the separator must be wrapped in double quotes: `ranged,"Ranged Unit, Elite",4500`. |
+| Fewer cells than the header | `heavy,Heavy Unit` when the header has 13 columns | Every row needs one cell per column. Keep the separators of empty cells: `heavy,Heavy Unit,,,,,,,,,,,`. |
+| Quote never closed | `ranged,"Ranged Unit,4500` | Add the closing quote: `ranged,"Ranged Unit",4500`. |
 | Quote inside an unquoted value | `cannon,12" Cannon,300` | Wrap the value in quotes and double the inner quote: `cannon,"12"" Cannon",300`. |
 | Duplicate column | `hp` and `HP` in the header | Column names are not case-sensitive. Keep one and delete the other. |
 | Missing required column | No `id` or `name` in the header | Add the column to the header row, as in the template. |
@@ -102,9 +141,9 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 | --- | --- | --- |
 | Text in a numeric column | `600 hp`, `$1200`, `N/A` | Write plain numbers: `600`, `1200`. Leave the cell empty if there is no value. |
 | Negative value | `hp` = `-10` | `hp`, `rate` and attack columns must be 0 or positive. Negative defense is allowed and counts as 0. |
-| Missing `id` or `name` | `,Wind Archer,4500` | Every row needs both. |
-| Id with spaces | `wind archer` | Use hyphens: `wind-archer`. |
-| Duplicate id | Two rows with `archer` | Every id must be unique, e.g. `archer` and `archer-elite`. |
+| Missing `id` or `name` | `,Ranged Unit,4500` | Every row needs both. |
+| Id with spaces | `ranged unit` | Use hyphens: `ranged-unit`. |
+| Duplicate id | Two rows with `ranged` | Every id must be unique, e.g. `ranged` and `ranged-elite`. |
 
 ### Saving from a spreadsheet
 

@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@fontsource-variable/saira": "^5.1.1",
-    "@metrix/core": "workspace:*",
+    "@metrix/core": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

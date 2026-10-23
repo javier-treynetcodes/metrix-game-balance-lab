@@ -84,7 +84,9 @@ function classify(canonical: string): ColumnRole {
   return { kind: 'stat', key: canonical };
 }
 
+/** Default display name of a channel: "Channel N" for numeric keys, otherwise the key capitalized. */
 function labelFor(key: string): string {
+  if (/^\d+$/.test(key)) return `Channel ${key}`;
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
@@ -253,7 +255,7 @@ export function importEntities(text: string): ImportResult {
           severity: 'error',
           code: tooLong ? 'row-too-long' : 'row-too-short',
           message: tooLong
-            ? `Some rows have more cells than the header. Text that contains a ${separatorName} must be wrapped in double quotes, e.g. "Archer${delimiter === '\t' ? '\t' : delimiter} the Swift".`
+            ? `Some rows have more cells than the header. Text that contains a ${separatorName} must be wrapped in double quotes, e.g. "Ranged Unit${delimiter === '\t' ? '\t' : delimiter} Elite".`
             : `Some rows have fewer cells than the header. Every row needs one cell per column, even when empty: keep the ${separatorName}s between empty cells.`,
         },
         line,
@@ -359,7 +361,7 @@ export function importEntities(text: string): ImportResult {
         {
           severity: 'error',
           code: 'invalid-id',
-          message: 'Ids cannot contain spaces. Use hyphens instead, e.g. "stone-guardian".',
+          message: 'Ids cannot contain spaces. Use hyphens instead, e.g. "heavy-unit".',
           column: 'id',
         },
         line,

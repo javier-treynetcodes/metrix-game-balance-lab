@@ -1,8 +1,6 @@
 # Dependencies
 node_modules/
 .pnpm-store/
-.yarn/
-.pnp.*
 
 # Build output and caches
 dist/
@@ -10,7 +8,6 @@ build/
 coverage/
 .vite/
 .cache/
-.parcel-cache/
 .eslintcache
 *.tsbuildinfo
 
@@ -34,9 +31,6 @@ service-account*.json
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 
 # AI assistants: instructions, memory and local settings
@@ -68,11 +62,7 @@ GEMINI.md
 Thumbs.db
 desktop.ini
 
-# Local tooling and hosting
-.wrangler/
-.dev.vars
-.vercel/
-.netlify/
+# Local tooling
 *.local
 tmp/
 temp/

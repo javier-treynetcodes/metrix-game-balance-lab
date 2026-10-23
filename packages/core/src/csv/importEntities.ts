@@ -8,6 +8,7 @@ export type ImportIssueCode =
   | 'duplicate-column'
   | 'empty-header'
   | 'row-too-long'
+  | 'row-too-short'
   | 'missing-id'
   | 'invalid-id'
   | 'duplicate-id'
@@ -29,14 +30,6 @@ export interface ImportIssue {
   column?: string;
   /** 1-based source line numbers affected. */
   lines?: number[];
-}
-
-export interface ImportOptions {
-  /**
-   * Maps headers in the user's file to canonical column names,
-   * e.g. `{ "Health": "hp", "Mana": "cost", "Phys ATK": "atk:physical" }`.
-   */
-  columnMap?: Record<string, string>;
 }
 
 export interface ImportResult {
@@ -103,10 +96,10 @@ class IssueLog {
 }
 
 /**
- * Imports a CSV catalog into entities and channels.
+ * Imports a CSV catalog that follows the Métrix template (see `CSV_TEMPLATE`).
  * Pure and synchronous: safe to run in a Web Worker.
  */
-export function importEntities(text: string, options: ImportOptions = {}): ImportResult {
+export function importEntities(text: string): ImportResult {
   const { delimiter, records } = parseCsv(text);
   const log = new IssueLog();
   const result = (channels: Channel[], entities: Entity[]): ImportResult => {
@@ -142,7 +135,7 @@ export function importEntities(text: string, options: ImportOptions = {}): Impor
       });
       return { kind: 'ignored' };
     }
-    const canonical = (options.columnMap?.[original] ?? original).trim().toLowerCase();
+    const canonical = original.toLowerCase();
     if (seen.has(canonical)) {
       log.add({
         severity: 'error',
@@ -225,12 +218,15 @@ export function importEntities(text: string, options: ImportOptions = {}): Impor
   const ids = new Set<string>();
 
   dataRows.forEach(({ cells: row, line }) => {
-    if (row.length > columns.length) {
+    if (row.length !== columns.length) {
+      const tooLong = row.length > columns.length;
       log.add(
         {
           severity: 'error',
-          code: 'row-too-long',
-          message: 'Some rows have more cells than the header.',
+          code: tooLong ? 'row-too-long' : 'row-too-short',
+          message: tooLong
+            ? 'Some rows have more cells than the header. Check for unquoted commas in text.'
+            : 'Some rows have fewer cells than the header.',
         },
         line,
       );
@@ -240,8 +236,10 @@ export function importEntities(text: string, options: ImportOptions = {}): Impor
     const entity: Entity = { id: '', name: '', rate: 1, atk: {}, def: {}, tags: {}, stats: {} };
     let rowValid = true;
 
-    columns.forEach(({ name: column, role }, index) => {
-      const raw = (row[index] ?? '').trim();
+    // Row length was validated above, so every cell has a matching column.
+    row.forEach((cell, index) => {
+      const { name: column, role } = columns[index] as Column;
+      const raw = cell.trim();
 
       switch (role.kind) {
         case 'id':

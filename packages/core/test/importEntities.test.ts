@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { importEntities, type ImportIssueCode, type ImportResult } from '../src';
+import { CSV_TEMPLATE, importEntities, type ImportIssueCode, type ImportResult } from '../src';
 
 const codes = (result: ImportResult): ImportIssueCode[] => result.issues.map((issue) => issue.code);
 const issue = (result: ImportResult, code: ImportIssueCode) =>
@@ -46,10 +46,15 @@ describe('importEntities', () => {
     expect(result.entities[0]?.rate).toBe(0.65);
   });
 
-  it('applies the column map and is case-insensitive', () => {
-    const result = importEntities('Key,Title,Health,PHYS\na,A,10,3', {
-      columnMap: { Key: 'id', Title: 'name', Health: 'hp', PHYS: 'atk:physical' },
-    });
+  it('imports the official template without issues', () => {
+    const result = importEntities(CSV_TEMPLATE);
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+    expect(result.entities).toHaveLength(4);
+  });
+
+  it('reads headers case-insensitively', () => {
+    const result = importEntities('ID,Name,HP,ATK:Physical\na,A,10,3');
     expect(result.ok).toBe(true);
     expect(result.entities[0]).toMatchObject({ id: 'a', name: 'A', hp: 10, atk: { physical: 3 } });
   });
@@ -63,10 +68,11 @@ describe('importEntities', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('treats missing trailing cells as empty', () => {
-    const result = importEntities('id,name,hp,speed\na,A');
-    expect(result.entities).toHaveLength(1);
-    expect(result.entities[0]?.stats).toEqual({});
+  it('rejects rows shorter than the header', () => {
+    const result = importEntities('id,name,hp,speed\na,A\nb,B,10,2');
+    expect(issue(result, 'row-too-short')).toMatchObject({ severity: 'error', lines: [2] });
+    expect(result.entities.map((entity) => entity.id)).toEqual(['b']);
+    expect(result.entities[0]?.stats).toEqual({ speed: 2 });
   });
 
   it('keeps fully numeric extra columns as stats', () => {

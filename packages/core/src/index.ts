@@ -5,6 +5,7 @@ export {
   detectDelimiter,
   parseCsv,
   type CsvRecord,
+  type CsvSyntaxError,
   type Delimiter,
   type ParsedCsv,
 } from './csv/parseCsv';

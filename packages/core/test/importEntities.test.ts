@@ -71,8 +71,8 @@ describe('importEntities', () => {
   it('rejects rows shorter than the header', () => {
     const result = importEntities('id,name,hp,speed\na,A\nb,B,10,2');
     expect(issue(result, 'row-too-short')).toMatchObject({ severity: 'error', lines: [2] });
-    expect(result.entities.map((entity) => entity.id)).toEqual(['b']);
-    expect(result.entities[0]?.stats).toEqual({ speed: 2 });
+    expect(issue(result, 'row-too-short')?.message).toContain('commas');
+    expect(result.entities).toEqual([]);
   });
 
   it('keeps fully numeric extra columns as stats', () => {
@@ -115,7 +115,7 @@ describe('importEntities', () => {
     const result = importEntities('id,name,hp,rate,atk:x\na,A,-1,1,1\nb,B,1,-1,1\nc,C,1,1,-1\nd,D,1,1,1');
     expect(result.ok).toBe(false);
     expect(result.issues.filter((entry) => entry.code === 'negative-value')).toHaveLength(3);
-    expect(result.entities.map((entity) => entity.id)).toEqual(['d']);
+    expect(result.entities).toEqual([]);
   });
 
   it('allows negative extra stats and cost', () => {
@@ -134,12 +134,51 @@ describe('importEntities', () => {
     const result = importEntities('id,name,hp\n,Nameless,1\nbad id,Bad,1\nok,,1\ndup,Dup,1\ndup,Dup,1');
     expect(codes(result)).toEqual(['missing-id', 'invalid-id', 'missing-name', 'duplicate-id']);
     expect(issue(result, 'duplicate-id')?.lines).toEqual([6]);
-    expect(result.entities.map((entity) => entity.id)).toEqual(['dup']);
+    expect(result.entities).toEqual([]);
   });
 
-  it('rejects rows longer than the header', () => {
-    const result = importEntities('id,name\na,A,extra');
-    expect(issue(result, 'row-too-long')?.lines).toEqual([2]);
+  it('rejects rows longer than the header and explains quoting for the detected separator', () => {
+    const comma = importEntities('id,name\na,A,extra');
+    expect(issue(comma, 'row-too-long')?.lines).toEqual([2]);
+    expect(issue(comma, 'row-too-long')?.message).toContain('"Archer, the Swift"');
+    expect(comma.entities).toEqual([]);
+    const tab = importEntities('id\tname\na\tA\textra');
+    expect(issue(tab, 'row-too-long')?.message).toContain('tab');
+  });
+
+  it('is all or nothing: one error rejects every row and channel', () => {
+    const result = importEntities('id,name,hp,atk:x\na,A,10,1\nb,B,lots,1\nc,C,10,1');
+    expect(result.ok).toBe(false);
+    expect(result.entities).toEqual([]);
+    expect(result.channels).toEqual([]);
+  });
+
+  it('reports every error in the file at once', () => {
+    const result = importEntities('id,name,hp\na,A,lots\na,,10\nb c,B,-1');
+    expect(codes(result)).toEqual([
+      'not-a-number',
+      'duplicate-id',
+      'missing-name',
+      'negative-value',
+      'invalid-id',
+    ]);
+  });
+
+  it('suggests decimal commas only for semicolon files', () => {
+    expect(issue(importEntities('id,name,hp\na,A,x'), 'not-a-number')?.message).toContain('use a dot');
+    expect(issue(importEntities('id;name;hp\na;A;x'), 'not-a-number')?.message).toContain('a comma or a dot');
+  });
+
+  it('lists a line only once per issue', () => {
+    const result = importEntities('id,name,hp,atk:x\na,A,-1,-1');
+    expect(issue(result, 'negative-value')?.lines).toEqual([2]);
+  });
+
+  it('reports only quote errors when the file has any', () => {
+    const result = importEntities('id,name,hp\na,12" Cannon,lots\nb,"Open,10\nc,C,10');
+    expect(codes(result)).toEqual(['stray-quote', 'unclosed-quote']);
+    expect(issue(result, 'stray-quote')?.lines).toEqual([2]);
+    expect(issue(result, 'unclosed-quote')?.lines).toEqual([3]);
     expect(result.entities).toEqual([]);
   });
 

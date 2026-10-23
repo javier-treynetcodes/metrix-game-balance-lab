@@ -1,9 +1,11 @@
 import type { Channel, Entity } from '../types';
-import { parseCsv, type Delimiter } from './parseCsv';
+import { parseCsv, type CsvSyntaxError, type Delimiter } from './parseCsv';
 import { parseNumber } from './parseNumber';
 
 export type ImportIssueCode =
   | 'empty-file'
+  | 'unclosed-quote'
+  | 'stray-quote'
   | 'missing-column'
   | 'duplicate-column'
   | 'empty-header'
@@ -58,6 +60,15 @@ interface Column {
 const FIXED_COLUMNS = ['id', 'name', 'category', 'cost', 'hp', 'rate'] as const;
 const NON_NEGATIVE = new Set(['hp', 'rate', 'atk']);
 
+const DELIMITER_NAMES: Record<Delimiter, string> = { ',': 'comma', ';': 'semicolon', '\t': 'tab' };
+
+const QUOTE_MESSAGES: Record<CsvSyntaxError['code'], string> = {
+  'unclosed-quote':
+    'A value opened with a double quote is never closed. Add the closing double quote. Fix quote errors first, then import again to check the rest of the file.',
+  'stray-quote':
+    'A double quote appears inside a value that is not wrapped in quotes. Wrap the whole value in double quotes and double the inner quote, e.g. "12"" Cannon". Fix quote errors first, then import again to check the rest of the file.',
+};
+
 function classify(canonical: string): ColumnRole {
   if ((FIXED_COLUMNS as readonly string[]).includes(canonical)) {
     return { kind: canonical as (typeof FIXED_COLUMNS)[number] };
@@ -87,7 +98,9 @@ class IssueLog {
       entry = { ...issue };
       this.byKey.set(key, entry);
     }
-    if (line !== undefined) (entry.lines ??= []).push(line);
+    if (line === undefined) return;
+    entry.lines ??= [];
+    if (entry.lines.at(-1) !== line) entry.lines.push(line);
   }
 
   get all(): ImportIssue[] {
@@ -97,25 +110,41 @@ class IssueLog {
 
 /**
  * Imports a CSV catalog that follows the Métrix template (see `CSV_TEMPLATE`).
- * Pure and synchronous: safe to run in a Web Worker.
+ * All or nothing: any error rejects the whole file, and every error is reported at once
+ * with the lines to fix. Pure and synchronous: safe to run in a Web Worker.
  */
 export function importEntities(text: string): ImportResult {
-  const { delimiter, records } = parseCsv(text);
+  const { delimiter, records, syntaxErrors } = parseCsv(text);
   const log = new IssueLog();
   const result = (channels: Channel[], entities: Entity[]): ImportResult => {
     const issues = log.all;
+    const ok = issues.every((issue) => issue.severity !== 'error');
     return {
-      ok: issues.every((issue) => issue.severity !== 'error'),
+      ok,
       delimiter,
-      channels,
-      entities,
+      channels: ok ? channels : [],
+      entities: ok ? entities : [],
       issues,
     };
   };
 
+  // Quote errors shift every following cell, so later checks would only produce noise.
+  if (syntaxErrors.length > 0) {
+    for (const { code, line } of syntaxErrors) {
+      log.add({ severity: 'error', code, message: QUOTE_MESSAGES[code] }, line);
+    }
+    return result([], []);
+  }
+  const decimalComma = delimiter === ';';
+  const separatorName = DELIMITER_NAMES[delimiter];
+
   const [headerRecord, ...dataRows] = records;
   if (!headerRecord) {
-    log.add({ severity: 'error', code: 'empty-file', message: 'The file has no rows.' });
+    log.add({
+      severity: 'error',
+      code: 'empty-file',
+      message: 'The file is empty. Download the template and fill it with your catalog.',
+    });
     return result([], []);
   }
 
@@ -140,7 +169,7 @@ export function importEntities(text: string): ImportResult {
       log.add({
         severity: 'error',
         code: 'duplicate-column',
-        message: `Column "${original}" appears more than once.`,
+        message: `Column "${original}" appears more than once (names are not case-sensitive). Keep one and delete the others.`,
         column: original,
       });
       return { kind: 'ignored' };
@@ -163,7 +192,7 @@ export function importEntities(text: string): ImportResult {
       log.add({
         severity: 'error',
         code: 'missing-column',
-        message: `Required column "${required}" is missing.`,
+        message: `Required column "${required}" is missing. Add it to the header row, as in the template.`,
         column: required,
       });
     }
@@ -171,7 +200,6 @@ export function importEntities(text: string): ImportResult {
   if (!log.all.every((issue) => issue.code !== 'missing-column')) return result([], []);
 
   // Free-text columns without a prefix are ignored (only fully numeric extra columns become stats).
-  const decimalComma = delimiter === ';';
   columns.forEach((column, index) => {
     const { role } = column;
     if (role.kind !== 'stat') return;
@@ -225,8 +253,8 @@ export function importEntities(text: string): ImportResult {
           severity: 'error',
           code: tooLong ? 'row-too-long' : 'row-too-short',
           message: tooLong
-            ? 'Some rows have more cells than the header. Check for unquoted commas in text.'
-            : 'Some rows have fewer cells than the header.',
+            ? `Some rows have more cells than the header. Text that contains a ${separatorName} must be wrapped in double quotes, e.g. "Archer${delimiter === '\t' ? '\t' : delimiter} the Swift".`
+            : `Some rows have fewer cells than the header. Every row needs one cell per column, even when empty: keep the ${separatorName}s between empty cells.`,
         },
         line,
       );
@@ -264,7 +292,7 @@ export function importEntities(text: string): ImportResult {
           {
             severity: 'error',
             code: 'not-a-number',
-            message: `Column "${column}" must contain numbers only.`,
+            message: `Column "${column}" must contain numbers only. Remove units, symbols and text (write 600, not "600 hp") and use ${decimalComma ? 'a comma or a dot' : 'a dot'} for decimals.`,
             column,
           },
           line,
@@ -288,7 +316,7 @@ export function importEntities(text: string): ImportResult {
             {
               severity: 'error',
               code: 'negative-value',
-              message: `Column "${column}" cannot be negative.`,
+              message: `Column "${column}" cannot be negative. Use 0 or a positive number.`,
               column,
             },
             line,
@@ -317,11 +345,23 @@ export function importEntities(text: string): ImportResult {
     });
 
     if (entity.id === '') {
-      log.add({ severity: 'error', code: 'missing-id', message: 'Some rows have no id.' }, line);
+      log.add(
+        {
+          severity: 'error',
+          code: 'missing-id',
+          message: 'Some rows have no id. Give every row a unique id.',
+        },
+        line,
+      );
       rowValid = false;
     } else if (/\s/.test(entity.id)) {
       log.add(
-        { severity: 'error', code: 'invalid-id', message: 'Ids cannot contain spaces.', column: 'id' },
+        {
+          severity: 'error',
+          code: 'invalid-id',
+          message: 'Ids cannot contain spaces. Use hyphens instead, e.g. "stone-guardian".',
+          column: 'id',
+        },
         line,
       );
       rowValid = false;
@@ -330,20 +370,28 @@ export function importEntities(text: string): ImportResult {
         {
           severity: 'error',
           code: 'duplicate-id',
-          message: `Id "${entity.id}" is used more than once.`,
+          message: `Id "${entity.id}" is used more than once. Every id must be unique.`,
           column: 'id',
         },
         line,
       );
       rowValid = false;
+    } else {
+      ids.add(entity.id);
     }
     if (entity.name === '') {
-      log.add({ severity: 'error', code: 'missing-name', message: 'Some rows have no name.' }, line);
+      log.add(
+        {
+          severity: 'error',
+          code: 'missing-name',
+          message: 'Some rows have no name. Fill in the name column.',
+        },
+        line,
+      );
       rowValid = false;
     }
     if (!rowValid) return;
 
-    ids.add(entity.id);
     if (entity.cost === undefined && columns.some(({ role }) => role.kind === 'cost')) {
       log.add(
         {

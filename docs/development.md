@@ -13,19 +13,18 @@ Technical guide for working on Métrix. For what the tool does and how to use it
 
 ## Requirements
 
-- Node.js 20 or later
-- pnpm 10 (`corepack enable` picks the version pinned in `package.json`)
+- Node.js 20 or later (npm is included; no other package manager is needed)
 
 ## Commands
 
 ```bash
-pnpm install     # install dependencies
-pnpm dev         # start the web app in development mode
-pnpm lint        # ESLint
-pnpm typecheck   # TypeScript in every package
-pnpm test        # engine tests with coverage (100% required)
-pnpm build       # production build of the web app
-pnpm check       # everything above, as run in CI
+npm install         # install dependencies for every workspace
+npm run dev         # start the web app at http://localhost:5173/metrix-game-balance-lab/
+npm run lint        # ESLint
+npm run typecheck   # TypeScript in every package
+npm test            # engine tests with coverage (100% required)
+npm run build       # production build of the web app
+npm run check       # everything above, as run in CI
 ```
 
 ## Branches

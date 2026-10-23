@@ -1,0 +1,260 @@
+{
+  "name": "moba-percent-mixed",
+  "description": "Percent mitigation, mixed physical + magic attacks and a true-damage channel.",
+  "channels": [
+    {
+      "key": "physical",
+      "label": "Physical",
+      "mitigation": "percent"
+    },
+    {
+      "key": "magic",
+      "label": "Magic",
+      "mitigation": "percent"
+    },
+    {
+      "key": "true",
+      "label": "True",
+      "mitigation": "none"
+    }
+  ],
+  "entities": [
+    {
+      "id": "guardian",
+      "name": "Stone Guardian",
+      "rate": 0.65,
+      "atk": {
+        "physical": 55,
+        "magic": 0
+      },
+      "def": {
+        "physical": 48,
+        "magic": 40
+      },
+      "tags": {
+        "role": "tank"
+      },
+      "stats": {},
+      "hp": 680,
+      "cost": 4800
+    },
+    {
+      "id": "archer",
+      "name": "Wind Archer",
+      "rate": 0.72,
+      "atk": {
+        "physical": 68
+      },
+      "def": {
+        "physical": 26,
+        "magic": 30
+      },
+      "tags": {
+        "role": "marksman"
+      },
+      "stats": {},
+      "hp": 560,
+      "cost": 4500
+    },
+    {
+      "id": "sorcerer",
+      "name": "Eclipse Sorcerer",
+      "rate": 0.62,
+      "atk": {
+        "magic": 85,
+        "true": 5
+      },
+      "def": {
+        "physical": 22,
+        "magic": 32
+      },
+      "tags": {
+        "role": "mage"
+      },
+      "stats": {},
+      "hp": 540,
+      "cost": 4600
+    },
+    {
+      "id": "duelist",
+      "name": "Arcane Duelist",
+      "rate": 0.69,
+      "atk": {
+        "physical": 42,
+        "magic": 38
+      },
+      "def": {
+        "physical": -10,
+        "magic": 34
+      },
+      "tags": {
+        "role": "fighter"
+      },
+      "stats": {},
+      "hp": 600,
+      "cost": 4700
+    }
+  ],
+  "expected": {
+    "damagePerHit": [
+      {
+        "attacker": "guardian",
+        "defender": "archer",
+        "damage": 43.6507936508
+      },
+      {
+        "attacker": "guardian",
+        "defender": "sorcerer",
+        "damage": 45.0819672131
+      },
+      {
+        "attacker": "guardian",
+        "defender": "duelist",
+        "damage": 55.0
+      },
+      {
+        "attacker": "archer",
+        "defender": "guardian",
+        "damage": 45.9459459459
+      },
+      {
+        "attacker": "archer",
+        "defender": "sorcerer",
+        "damage": 55.737704918
+      },
+      {
+        "attacker": "archer",
+        "defender": "duelist",
+        "damage": 68.0
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "guardian",
+        "damage": 65.7142857143
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "archer",
+        "damage": 70.3846153846
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "duelist",
+        "damage": 68.4328358209
+      },
+      {
+        "attacker": "duelist",
+        "defender": "guardian",
+        "damage": 55.5212355212
+      },
+      {
+        "attacker": "duelist",
+        "defender": "archer",
+        "damage": 62.5641025641
+      },
+      {
+        "attacker": "duelist",
+        "defender": "sorcerer",
+        "damage": 63.2141082961
+      }
+    ],
+    "timeToDefeat": [
+      {
+        "attacker": "guardian",
+        "defender": "archer",
+        "result": {
+          "kind": "defeats",
+          "time": 19.7370629371
+        }
+      },
+      {
+        "attacker": "guardian",
+        "defender": "sorcerer",
+        "result": {
+          "kind": "defeats",
+          "time": 18.427972028
+        }
+      },
+      {
+        "attacker": "guardian",
+        "defender": "duelist",
+        "result": {
+          "kind": "defeats",
+          "time": 16.7832167832
+        }
+      },
+      {
+        "attacker": "archer",
+        "defender": "guardian",
+        "result": {
+          "kind": "defeats",
+          "time": 20.5555555556
+        }
+      },
+      {
+        "attacker": "archer",
+        "defender": "sorcerer",
+        "result": {
+          "kind": "defeats",
+          "time": 13.4558823529
+        }
+      },
+      {
+        "attacker": "archer",
+        "defender": "duelist",
+        "result": {
+          "kind": "defeats",
+          "time": 12.2549019608
+        }
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "guardian",
+        "result": {
+          "kind": "defeats",
+          "time": 16.6900420757
+        }
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "archer",
+        "result": {
+          "kind": "defeats",
+          "time": 12.8327163758
+        }
+      },
+      {
+        "attacker": "sorcerer",
+        "defender": "duelist",
+        "result": {
+          "kind": "defeats",
+          "time": 14.1414852077
+        }
+      },
+      {
+        "attacker": "duelist",
+        "defender": "guardian",
+        "result": {
+          "kind": "defeats",
+          "time": 17.7500957449
+        }
+      },
+      {
+        "attacker": "duelist",
+        "defender": "archer",
+        "result": {
+          "kind": "defeats",
+          "time": 12.9722024234
+        }
+      },
+      {
+        "attacker": "duelist",
+        "defender": "sorcerer",
+        "result": {
+          "kind": "defeats",
+          "time": 12.3802852994
+        }
+      }
+    ]
+  }
+}

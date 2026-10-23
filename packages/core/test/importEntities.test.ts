@@ -145,7 +145,7 @@ describe('importEntities', () => {
   it('rejects rows longer than the header and explains quoting for the detected separator', () => {
     const comma = importEntities('id,name\na,A,extra');
     expect(issue(comma, 'row-too-long')?.lines).toEqual([2]);
-    expect(issue(comma, 'row-too-long')?.message).toContain('"Archer, the Swift"');
+    expect(issue(comma, 'row-too-long')?.message).toContain('"Ranged Unit, Elite"');
     expect(comma.entities).toEqual([]);
     const tab = importEntities('id\tname\na\tA\textra');
     expect(issue(tab, 'row-too-long')?.message).toContain('tab');

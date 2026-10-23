@@ -71,7 +71,7 @@ Common channels by genre:
 
 Tips:
 
-- Wrap text that contains commas in double quotes: `"Archer, the Swift"`.
+- Wrap text that contains commas in double quotes: `"Ranged Unit, Elite"`.
 - Empty `atk:` and `def:` cells count as 0. An empty `cost` or `hp` leaves the entity out of the curve or the duels.
 - Files using `;` as separator (common in Spanish or German spreadsheets) are detected automatically, and decimal commas such as `0,65` are accepted.
 
@@ -113,9 +113,9 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 
 | Error | Example | Fix |
 | --- | --- | --- |
-| More cells than the header | `archer,Archer, the Swift,4500` | Text that contains the separator must be wrapped in double quotes: `archer,"Archer, the Swift",4500`. |
+| More cells than the header | `ranged,Ranged Unit, Elite,4500` | Text that contains the separator must be wrapped in double quotes: `ranged,"Ranged Unit, Elite",4500`. |
 | Fewer cells than the header | `heavy,Heavy Unit` when the header has 13 columns | Every row needs one cell per column. Keep the separators of empty cells: `heavy,Heavy Unit,,,,,,,,,,,`. |
-| Quote never closed | `archer,"Wind Archer,4500` | Add the closing quote: `archer,"Wind Archer",4500`. |
+| Quote never closed | `ranged,"Ranged Unit,4500` | Add the closing quote: `ranged,"Ranged Unit",4500`. |
 | Quote inside an unquoted value | `cannon,12" Cannon,300` | Wrap the value in quotes and double the inner quote: `cannon,"12"" Cannon",300`. |
 | Duplicate column | `hp` and `HP` in the header | Column names are not case-sensitive. Keep one and delete the other. |
 | Missing required column | No `id` or `name` in the header | Add the column to the header row, as in the template. |
@@ -126,9 +126,9 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 | --- | --- | --- |
 | Text in a numeric column | `600 hp`, `$1200`, `N/A` | Write plain numbers: `600`, `1200`. Leave the cell empty if there is no value. |
 | Negative value | `hp` = `-10` | `hp`, `rate` and attack columns must be 0 or positive. Negative defense is allowed and counts as 0. |
-| Missing `id` or `name` | `,Wind Archer,4500` | Every row needs both. |
-| Id with spaces | `wind archer` | Use hyphens: `wind-archer`. |
-| Duplicate id | Two rows with `archer` | Every id must be unique, e.g. `archer` and `archer-elite`. |
+| Missing `id` or `name` | `,Ranged Unit,4500` | Every row needs both. |
+| Id with spaces | `ranged unit` | Use hyphens: `ranged-unit`. |
+| Duplicate id | Two rows with `ranged` | Every id must be unique, e.g. `ranged` and `ranged-elite`. |
 
 ### Saving from a spreadsheet
 

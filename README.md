@@ -56,12 +56,14 @@ Tips:
 
 ### 3. Import the file *(coming soon)*
 
-Drag the CSV into Métrix or choose **Import CSV**. Métrix checks the whole file and lists what it found:
+Drag the CSV into Métrix or choose **Import CSV**. Métrix checks the whole file before importing anything:
 
-- **Errors** stop a row or the whole file from being imported: missing or duplicate `id`, missing `name`, text in a numeric column, negative `hp`, `rate` or attack, rows with more or fewer cells than the header, or duplicate columns.
+- **Errors** block the import completely: no data is loaded until every error is fixed. This guarantees that the analysis always covers your full catalog, never a silently incomplete one. All errors are listed at once, each with the lines to fix and how to fix it.
 - **Warnings** let the import continue: text columns without the `tag:` prefix are ignored, negative defense counts as 0, entities without `cost` or `hp` are left out of the curve or the duels.
 
-Each message includes the line numbers to fix in your file.
+If the file has quote errors, only those are listed, because they shift every following cell. Fix them and import again to see any remaining errors.
+
+See [Cleaning your CSV](#cleaning-your-csv) for every error and its fix.
 
 ### 4. Choose how defense works *(coming soon)*
 
@@ -81,6 +83,38 @@ Channels with a `def:` column start as **Percent**; channels without one start a
 - **Galaxy:** a map where similar entities sit close together. Overlapping points are clones; empty areas are design gaps.
 - **Cost/power curve:** each entity's power against its cost, with off-curve entities highlighted.
 - **Duel matrix:** how long each entity takes to defeat every other one. When an attacker cannot hurt a defender, Métrix says so instead of showing infinity.
+
+## Cleaning your CSV
+
+Most import errors come from how a spreadsheet saved the file. Open the CSV in a plain text editor to see exactly what Métrix reads.
+
+### Structure and quotes
+
+| Error | Example | Fix |
+| --- | --- | --- |
+| More cells than the header | `archer,Archer, the Swift,4500` | Text that contains the separator must be wrapped in double quotes: `archer,"Archer, the Swift",4500`. |
+| Fewer cells than the header | `archer,Wind Archer` when the header has 11 columns | Every row needs one cell per column. Keep the separators of empty cells: `archer,Wind Archer,,,,,,,,,`. |
+| Quote never closed | `archer,"Wind Archer,4500` | Add the closing quote: `archer,"Wind Archer",4500`. |
+| Quote inside an unquoted value | `cannon,12" Cannon,300` | Wrap the value in quotes and double the inner quote: `cannon,"12"" Cannon",300`. |
+| Duplicate column | `hp` and `HP` in the header | Column names are not case-sensitive. Keep one and delete the other. |
+| Missing required column | No `id` or `name` in the header | Add the column to the header row, as in the template. |
+
+### Values
+
+| Error | Example | Fix |
+| --- | --- | --- |
+| Text in a numeric column | `600 hp`, `$1200`, `N/A` | Write plain numbers: `600`, `1200`. Leave the cell empty if there is no value. |
+| Negative value | `hp` = `-10` | `hp`, `rate` and attack columns must be 0 or positive. Negative defense is allowed and counts as 0. |
+| Missing `id` or `name` | `,Wind Archer,4500` | Every row needs both. |
+| Id with spaces | `wind archer` | Use hyphens: `wind-archer`. |
+| Duplicate id | Two rows with `archer` | Every id must be unique, e.g. `archer` and `archer-elite`. |
+
+### Saving from a spreadsheet
+
+- Save as **CSV (comma-separated)** or **CSV UTF-8**. Other formats are not supported.
+- Spreadsheets in some languages save with `;` and decimal commas (`0,65`). Métrix detects this automatically.
+- Remove totals, notes and merged cells: the file must contain only the header row and one row per entity.
+- Remove thousands separators before saving: `1,200` splits the row in a comma-separated file, and `1.200` would be read as 1.2. Format numeric columns as plain numbers.
 
 ## Privacy
 

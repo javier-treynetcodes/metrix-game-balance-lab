@@ -34,10 +34,22 @@ export function GitHubIcon() {
 
 export function LogoMark() {
   return (
-    <svg className="logo-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="7" fill="#0d1117" stroke="rgba(0,240,255,0.35)" />
-      <path d="M7 24V8l9 10 9-10v16" fill="none" stroke="#00f0ff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="18" r="2.5" fill="#7b2ff7" />
+    <svg className="logo-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="logo-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#00f0ff" />
+          <stop offset="1" stopColor="#7b2ff7" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="16" fill="url(#logo-gradient)" />
+      <path
+        d="M14 46V19l18 17 18-17v27"
+        fill="none"
+        stroke="#0d1117"
+        strokeWidth="6.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

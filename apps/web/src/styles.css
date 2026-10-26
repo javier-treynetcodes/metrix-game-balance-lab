@@ -123,7 +123,8 @@ body::before {
 .logo-mark {
   width: 2rem;
   height: 2rem;
-  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.25));
+  filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.3));
+  border-radius: 25%;
 }
 
 .brand-name {

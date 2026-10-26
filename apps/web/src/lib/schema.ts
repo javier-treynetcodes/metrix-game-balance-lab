@@ -1,4 +1,5 @@
 import { classifyHeader, type Channel, type Entity } from '@metrix/core';
+import { statCode } from './codes';
 import type { Catalog } from '../state/catalog';
 
 /** Which fields the catalog's file has. Users cannot add columns: they edit what the file has. */
@@ -81,7 +82,27 @@ export function channelLabel(channels: readonly Channel[], key: string): string 
 export function attackChoiceLabel(choice: AttackChoice, channels: readonly Channel[]): string {
   if (choice === 'none') return 'No attack';
   if (choice === 'hybrid') return 'Hybrid';
-  return channelLabel(channels, choice.slice(3));
+  return statCode('atk', channels, choice.slice(3));
+}
+
+/** Sets one attack value. Typing an attack of another kind switches the entity to that kind. */
+export function withAttackValue(
+  entity: Entity,
+  kind: 'atk' | 'hyb',
+  key: string,
+  value: number,
+  channels: readonly Channel[],
+): Entity {
+  const zeros = Object.fromEntries(Object.keys(entity.atk).map((name) => [name, 0]));
+  if (kind === 'hyb') {
+    const base = entity.hybridAtk ?? Object.fromEntries(channels.map((channel) => [channel.key, 0]));
+    return { ...entity, atk: zeros, hybridAtk: { ...base, [key]: value } };
+  }
+  // A 0 only clears this attack; any other kind of attack stays as it was.
+  if (value === 0) return { ...entity, atk: { ...entity.atk, [key]: 0 } };
+  const next: Entity = { ...entity, atk: { ...zeros, [key]: value } };
+  delete next.hybridAtk;
+  return next;
 }
 
 /** A blank entity with every field of the file at 0, ready to be edited. */

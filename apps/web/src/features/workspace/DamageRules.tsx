@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Channel, Entity } from '@metrix/core';
 import { ChannelDot } from '../../components/AttackBadge';
+import { StatCode } from '../../components/StatCode';
 import { HowDamageWorks } from '../../components/HowDamageWorks';
 import { plural } from '../../lib/format';
 import { withKey } from '../../lib/record';
@@ -39,8 +40,8 @@ export function DamageRules({ channels, entities, onRename }: DamageRulesProps) 
 
       <h3 className="section-title">Your channels</h3>
       <p className="muted small intro">
-        Name each channel after your game: physical, magic, kinetic… The new name is used across the app and in the
-        columns of the CSV you export.
+        Name each channel after your game: physical, magic, kinetic… ATK 1 and DEF 1 then read ATK Physical and DEF
+        Physical across the app, and the CSV you export uses the new name.
       </p>
       <div className="channel-grid">
         {channels.map((channel) => {
@@ -67,14 +68,16 @@ export function DamageRules({ channels, entities, onRename }: DamageRulesProps) 
                 />
               </label>
               <p className="formula">
-                <span className="muted">{channel.label} damage =</span> {channel.label} attack − {channel.label} defense
+                <span className="muted">Damage =</span> <StatCode kind="atk" channels={channels} channelKey={channel.key} /> −{' '}
+                <StatCode kind="def" channels={channels} channelKey={channel.key} />
               </p>
               <p className="muted small">{plural(attackers, 'entity attacks', 'entities attack')} on this channel.</p>
               {exposed.length > 0 && (
                 <details className="exposure">
                   <summary>
-                    {plural(exposed.length, 'entity has', 'entities have')} no {channel.label} defense: {channel.label}{' '}
-                    attacks hit them in full.
+                    {plural(exposed.length, 'entity has', 'entities have')} no{' '}
+                    <StatCode kind="def" channels={channels} channelKey={channel.key} />: every{' '}
+                    <StatCode kind="atk" channels={channels} channelKey={channel.key} /> hits them in full.
                   </summary>
                   <NameList entities={exposed} />
                 </details>
@@ -82,14 +85,18 @@ export function DamageRules({ channels, entities, onRename }: DamageRulesProps) 
               {exposedToHybrid.length > 0 && (
                 <details className="exposure">
                   <summary>
-                    {plural(exposedToHybrid.length, 'entity has', 'entities have')} neither {channel.label} defense nor
-                    hybrid armor: the {channel.label} part of hybrid attacks hits them in full.
+                    {plural(exposedToHybrid.length, 'entity has', 'entities have')} neither{' '}
+                    <StatCode kind="def" channels={channels} channelKey={channel.key} /> nor{' '}
+                    <StatCode kind="arm" channels={channels} channelKey={channel.key} />: every{' '}
+                    <StatCode kind="hyb" channels={channels} channelKey={channel.key} /> hits them in full.
                   </summary>
                   <NameList entities={exposedToHybrid} />
                 </details>
               )}
               {attackers > 0 && exposed.length === 0 && exposedToHybrid.length === 0 && (
-                <p className="ok small">Every entity has some {channel.label} defense.</p>
+                <p className="ok small">
+                  Every entity has some <StatCode kind="def" channels={channels} channelKey={channel.key} />.
+                </p>
               )}
             </section>
           );
@@ -99,14 +106,24 @@ export function DamageRules({ channels, entities, onRename }: DamageRulesProps) 
             <span className="dot tone-hybrid" aria-hidden="true" /> Hybrid
           </p>
           <p className="formula">
-            <span className="muted">Hybrid damage =</span> each part − (that channel&apos;s defense + hybrid armor), added
-            together
+            <span className="muted">Damage =</span> (
+            {channels.map((channel, index) => (
+              <span key={channel.key}>
+                {index > 0 && ') + ('}
+                <StatCode kind="hyb" channels={channels} channelKey={channel.key} /> −{' '}
+                <StatCode kind="def" channels={channels} channelKey={channel.key} /> −{' '}
+                <StatCode kind="arm" channels={channels} channelKey={channel.key} />
+              </span>
+            ))}
+            )
           </p>
           <p className="muted small">
             {plural(hybridAttackers.length, 'hybrid attacker')} · {plural(withHybridArmor.length, 'entity', 'entities')} with
             hybrid armor.
           </p>
-          <p className="muted small">Hybrid armor only works against hybrid attacks.</p>
+          <p className="muted small">
+            ARM (hybrid armor) only works against hybrid attacks, on top of DEF.
+          </p>
         </section>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { attackType, type Channel, type Entity } from '@metrix/core';
 import { attackChoiceLabel, attackChoiceOf } from '../lib/schema';
+import { SwordIcon } from './Icons';
 
 /** Color slot of a channel: the first is cyan, the second violet, hybrid uses both. */
 export function channelTone(channels: readonly Channel[], key: string): 'one' | 'two' {
@@ -15,5 +16,10 @@ export function AttackBadge({ entity, channels }: { entity: Entity; channels: re
   const choice = attackChoiceOf(entity);
   const kind = attackType(entity);
   const tone = kind === 'hybrid' ? 'hybrid' : kind === 'none' ? 'none' : channelTone(channels, choice.slice(3));
-  return <span className={`badge tone-${tone}`}>{attackChoiceLabel(choice, channels)}</span>;
+  return (
+    <span className={`badge tone-${tone}`}>
+      {kind !== 'none' && <SwordIcon />}
+      {attackChoiceLabel(choice, channels)}
+    </span>
+  );
 }

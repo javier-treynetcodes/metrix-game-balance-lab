@@ -11,6 +11,8 @@ Métrix is a balance lab for game designers working in any genre: card games, MO
 
 Everything runs locally in your browser. Your data is never uploaded and there is no account to create.
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%99%A5-ff6bb2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/javier-treynetcodes)
+
 
 ## How to use Métrix
 
@@ -153,6 +155,10 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 - Save as **CSV (comma-separated)** or **CSV UTF-8**. Other formats are not supported.
 - Remove totals, notes and merged cells: the file must contain only the header row and one row per entity.
 - Remove thousands separators before saving (`1,200` → `1200`): format numeric columns as plain numbers.
+
+## Support Métrix
+
+Métrix is free to use. If it helps you balance your game, consider [sponsoring its development on GitHub](https://github.com/sponsors/javier-treynetcodes): sponsorships fund the next analyses, like the cost/power curve and the galaxy map.
 
 ## Privacy
 

@@ -9,12 +9,14 @@ import {
   type Entity,
   type HitsToDefeat,
 } from '@metrix/core';
-import { AttackBadge, ChannelDot } from '../../components/AttackBadge';
+import { AttackBadge, channelTone } from '../../components/AttackBadge';
+import { StatCode } from '../../components/StatCode';
 import { Stepper } from '../../components/Stepper';
-import { damageReasons, rowExpression } from '../../lib/explain';
+import { damageReasons } from '../../lib/explain';
 import type { GenreProfile } from '../../lib/genres';
 import { capitalize, formatHits, formatSigned, metricName } from '../../lib/metrics';
-import { attackChoiceOf, channelLabel, type CatalogSchema } from '../../lib/schema';
+import { statCode } from '../../lib/codes';
+import { attackChoiceOf, type CatalogSchema } from '../../lib/schema';
 import { entityFields, type Row } from '../../state/catalog';
 
 interface VersusProps {
@@ -241,35 +243,53 @@ function Breakdown({
   channels: readonly Channel[];
   hit: string;
 }) {
+  // Bars share one scale so rows can be compared at a glance.
+  const scale = Math.max(...breakdown.rows.map((row) => row.attack), 1);
   return (
-    <table className="breakdown">
-      <caption>{title}</caption>
-      <tbody>
-        {breakdown.rows.length === 0 && (
-          <tr>
-            <td colSpan={3} className="muted">No attack.</td>
-          </tr>
-        )}
-        {breakdown.rows.map((row) => (
-          <tr key={`${row.source}-${row.channel}`}>
-            <th scope="row">
-              <ChannelDot channels={channels} channelKey={row.channel} /> {channelLabel(channels, row.channel)}
-              {row.source === 'hybrid' && <span className="muted"> (hybrid)</span>}
-            </th>
-            <td>{rowExpression(row)}</td>
-            <td>{row.fullDamage && <span className="tag tag-warn">full damage</span>}</td>
-          </tr>
-        ))}
-        <tr className="total">
-          <th scope="row">Per {hit}</th>
-          <td>
-            {breakdown.rows.length > 1 ? `${breakdown.rows.map((row) => row.damage).join(' + ')} = ` : ''}
-            <strong>{breakdown.damage}</strong>
-          </td>
-          <td />
-        </tr>
-      </tbody>
-    </table>
+    <div className="breakdown">
+      <p className="breakdown-title">{title}</p>
+      {breakdown.rows.length === 0 && <p className="muted">No attack.</p>}
+      <ul className="damage-rows">
+        {breakdown.rows.map((row) => {
+          const blocked = row.attack - row.damage;
+          const tone = row.source === 'hybrid' ? 'hybrid' : channelTone(channels, row.channel);
+          return (
+            <li key={`${row.source}-${row.channel}`} className="damage-row">
+              <div className="damage-line">
+                <StatCode kind={row.source === 'hybrid' ? 'hyb' : 'atk'} channels={channels} channelKey={row.channel} />
+                <span className="expression">
+                  {row.attack} − <StatCode kind="def" channels={channels} channelKey={row.channel} /> {row.defense}
+                  {row.hybridDefense > 0 && (
+                    <>
+                      {' '}
+                      − <StatCode kind="arm" channels={channels} channelKey={row.channel} /> {row.hybridDefense}
+                    </>
+                  )}{' '}
+                  = <strong>{row.damage}</strong>
+                </span>
+                {row.fullDamage && <span className="tag tag-warn">full damage</span>}
+              </div>
+              <div
+                className="damage-bar"
+                role="img"
+                aria-label={`${row.attack} attack: ${blocked} blocked, ${row.damage} damage`}
+              >
+                {blocked > 0 && <span className="bar-blocked" style={{ width: `${(blocked / scale) * 100}%` }} />}
+                {row.damage > 0 && <span className={`bar-damage tone-${tone}`} style={{ width: `${(row.damage / scale) * 100}%` }} />}
+              </div>
+              <p className="bar-legend">
+                {blocked > 0 ? `${blocked} blocked` : 'nothing blocked'} · {row.damage} damage
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="damage-total">
+        Per {hit}:{' '}
+        {breakdown.rows.length > 1 ? `${breakdown.rows.map((row) => row.damage).join(' + ')} = ` : ''}
+        <strong>{breakdown.damage}</strong>
+      </p>
+    </div>
   );
 }
 
@@ -294,16 +314,16 @@ function WhatIf({
   if (choice.startsWith('ch:')) {
     const key = choice.slice(3);
     steppers.push({
-      label: `${channelLabel(channels, key)} attack`,
+      label: statCode('atk', channels, key),
       value: entity.atk[key] ?? 0,
       was: original.atk[key],
       set: (value) => ({ ...entity, atk: { ...entity.atk, [key]: value } }),
     });
   }
   if (entity.hybridAtk) {
-    for (const { key, label } of channels) {
+    for (const { key } of channels) {
       steppers.push({
-        label: `Hybrid ${label} attack`,
+        label: statCode('hyb', channels, key),
         value: entity.hybridAtk[key] ?? 0,
         was: original.hybridAtk?.[key],
         set: (value) => ({ ...entity, hybridAtk: { ...entity.hybridAtk, [key]: value } }),
@@ -312,7 +332,7 @@ function WhatIf({
   }
   for (const key of schema.defChannels) {
     steppers.push({
-      label: `${channelLabel(channels, key)} defense`,
+      label: statCode('def', channels, key),
       value: entity.def[key] ?? 0,
       was: original.def[key] ?? 0,
       set: (value) => ({ ...entity, def: { ...entity.def, [key]: value } }),
@@ -320,7 +340,7 @@ function WhatIf({
   }
   for (const key of schema.hybridDefChannels) {
     steppers.push({
-      label: `Hybrid armor ${channelLabel(channels, key)}`,
+      label: statCode('arm', channels, key),
       value: entity.hybridDef[key] ?? 0,
       was: original.hybridDef[key] ?? 0,
       set: (value) => ({ ...entity, hybridDef: { ...entity.hybridDef, [key]: value } }),

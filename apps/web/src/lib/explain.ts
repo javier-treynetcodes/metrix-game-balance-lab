@@ -1,11 +1,5 @@
-import type { Channel, DamageBreakdown, DamageRow } from '@metrix/core';
-import { channelLabel } from './schema';
-
-/** The subtraction of one row, written out: "30 − (20 + 10) = 0". */
-export function rowExpression(row: DamageRow): string {
-  const defense = row.hybridDefense > 0 ? `(${row.defense} + ${row.hybridDefense})` : String(row.defense);
-  return `${row.attack} − ${defense} = ${row.damage}`;
-}
+import type { Channel, DamageBreakdown } from '@metrix/core';
+import { statCode } from './codes';
 
 /** Plain-language reasons behind a damage breakdown. */
 export function damageReasons(
@@ -17,12 +11,15 @@ export function damageReasons(
   if (breakdown.attack === 0) return [`${attacker} has no attack, so it cannot damage ${defender}.`];
   return breakdown.rows.flatMap((row) => {
     if (row.attack === 0) return [];
-    const label = channelLabel(channels, row.channel);
-    const kind = row.source === 'hybrid' ? `hybrid ${label} part` : `${label} attack`;
-    if (row.fullDamage) return [`${defender} has no ${label} defense, so ${attacker}'s ${kind} (${row.attack}) lands in full.`];
+    const attack = statCode(row.source === 'hybrid' ? 'hyb' : 'atk', channels, row.channel);
+    const defense = statCode('def', channels, row.channel);
+    if (row.fullDamage) {
+      const armor = row.source === 'hybrid' ? ` or ${statCode('arm', channels, row.channel)}` : '';
+      return [`${defender} has no ${defense}${armor}, so ${attacker}'s ${attack} (${row.attack}) lands in full.`];
+    }
     if (row.damage === 0) {
-      const armor = row.hybridDefense > 0 ? ` plus ${row.hybridDefense} hybrid armor` : '';
-      return [`${defender}'s ${label} defense (${row.defense}${armor}) stops ${attacker}'s ${kind} (${row.attack}) completely.`];
+      const armor = row.hybridDefense > 0 ? ` + ${statCode('arm', channels, row.channel)} ${row.hybridDefense}` : '';
+      return [`${defender}'s ${defense} ${row.defense}${armor} stops ${attacker}'s ${attack} (${row.attack}) completely.`];
     }
     return [];
   });
@@ -34,9 +31,9 @@ export function wallReason(breakdown: DamageBreakdown, channels: readonly Channe
   return breakdown.rows
     .filter((row) => row.attack > 0)
     .map((row) => {
-      const label = channelLabel(channels, row.channel);
-      const defense = row.hybridDefense > 0 ? `${row.defense} + ${row.hybridDefense} hybrid` : String(row.defense);
-      return `${label} ${row.attack} vs defense ${defense}`;
+      const attack = statCode(row.source === 'hybrid' ? 'hyb' : 'atk', channels, row.channel);
+      const armor = row.hybridDefense > 0 ? ` + ${statCode('arm', channels, row.channel)} ${row.hybridDefense}` : '';
+      return `${attack} ${row.attack} vs ${statCode('def', channels, row.channel)} ${row.defense}${armor}`;
     })
     .join(', ');
 }

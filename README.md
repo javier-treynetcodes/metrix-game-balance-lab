@@ -14,9 +14,9 @@ Everything runs locally in your browser. Your data is never uploaded and there i
 
 ## How to use Métrix
 
-### 1. Get the template *(coming soon)*
+### 1. Get the template
 
-Open Métrix and choose **Download template** or **Copy template**. The template is a CSV file with the header and a few invented example rows:
+Open Métrix and choose **Download template** or **Copy template**. To look around before preparing your own file, choose **Try with example data**. The template is a CSV file with the header and a few invented example rows:
 
 ```csv
 id,name,category,cost,hp,atk:1,def:1,atk:2,def:2,atk:3,def:3,rate,tag:role
@@ -57,7 +57,7 @@ Damage channels are how Métrix models attack and defense in any genre: attack o
 
 The template uses `1`, `2` and `3` as channel names, shown as "Channel 1", "Channel 2" and "Channel 3". Give them your game's names by editing the column headers: `atk:1` and `def:1` can become `atk:kinetic` and `def:kinetic`, shown as "Kinetic". The name after the colon must be the same in the `atk:` and `def:` columns of a channel.
 
-You will also be able to rename channels from the web without editing the file *(coming soon)*.
+You can also rename channels from the web, in the **Defense rules** tab, without editing the file. The new name is only used for display.
 
 ##### Adding or removing attack and defense types
 
@@ -90,9 +90,9 @@ Tips:
 - Empty `atk:` and `def:` cells count as 0. An empty `cost` or `hp` leaves the entity out of the curve or the duels.
 - Files using `;` as separator (common in Spanish or German spreadsheets) are detected automatically, and decimal commas such as `0,65` are accepted.
 
-### 3. Import the file *(coming soon)*
+### 3. Import the file
 
-Drag the CSV into Métrix or choose **Import CSV**. Métrix checks the whole file before importing anything:
+Drag the CSV into Métrix or choose **Choose CSV file**. To replace a loaded catalog, choose **Import another file**. Métrix checks the whole file before importing anything:
 
 - **Errors** block the import completely: no data is loaded until every error is fixed. This guarantees that the analysis always covers your full catalog, never a silently incomplete one. All errors are listed at once, each with the lines to fix and how to fix it.
 - **Warnings** let the import continue: text columns without the `tag:` prefix are ignored, negative defense counts as 0, entities without `cost` or `hp` are left out of the curve or the duels.
@@ -101,9 +101,9 @@ If the file has quote errors, only those are listed, because they shift every fo
 
 See [Cleaning your CSV](#cleaning-your-csv) for every error and its fix.
 
-### 4. Choose how defense works *(coming soon)*
+### 4. Choose how defense works
 
-For each channel, pick the rule your game uses to reduce damage:
+In the **Defense rules** tab, pick for each channel the rule your game uses to reduce damage. You can also give each channel a display name; your CSV keeps its column names.
 
 | Rule | Formula | Typical in |
 | --- | --- | --- |
@@ -114,11 +114,12 @@ For each channel, pick the rule your game uses to reduce damage:
 
 Channels with a `def:` column start as **Percent**; channels without one start as **None**.
 
-### 5. Explore the results *(coming soon)*
+### 5. Explore the results
 
-- **Galaxy:** a map where similar entities sit close together. Overlapping points are clones; empty areas are design gaps.
-- **Cost/power curve:** each entity's power against its cost, with off-curve entities highlighted.
-- **Duel matrix:** how long each entity takes to defeat every other one. When an attacker cannot hurt a defender, Métrix says so instead of showing infinity.
+- **Catalog:** every imported entity in a table you can search and sort.
+- **Duels:** how long each entity takes to defeat every other one when both attack at once, who wins each duel and each entity's win–loss record. When an attacker cannot hurt a defender, Métrix says so instead of showing infinity, and the **Walls** list shows which entities some attackers cannot damage at all.
+- **Galaxy** *(coming soon)*: a map where similar entities sit close together. Overlapping points are clones; empty areas are design gaps.
+- **Cost/power curve** *(coming soon)*: each entity's power against its cost, with off-curve entities highlighted.
 
 ## Cleaning your CSV
 
@@ -154,7 +155,7 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 
 ## Privacy
 
-Métrix processes your catalog inside your browser. Nothing is sent to any server, there are no accounts and no tracking cookies.
+Métrix processes your catalog inside your browser. Nothing is sent to any server, there are no accounts and no tracking cookies. The last imported catalog is kept in your browser's local storage so it survives a reload; **Clear data** removes it.
 
 ## Development
 

@@ -22,7 +22,7 @@ export function AppFooter() {
           <span>
             Built by{' '}
             <a href={LINKS.author} target="_blank" rel="noreferrer">
-              TreyNet Codes
+              @javier-treynetcodes
             </a>
           </span>
           <a href={LINKS.repo} target="_blank" rel="noreferrer" className="inline-icon-link">

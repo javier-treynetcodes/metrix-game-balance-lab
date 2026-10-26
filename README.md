@@ -171,14 +171,4 @@ Métrix is free to use. If it helps you balance your game, consider [sponsoring 
 
 Métrix processes your catalog inside your browser. Nothing is sent to any server, there are no accounts and no tracking cookies. The last imported catalog, with your edits, is kept in your browser's local storage so it survives a reload; **Clear data** removes it.
 
-## Development
 
-Requires Node.js 20 or later.
-
-```bash
-npm install         # install every workspace
-npm run dev         # web app at http://localhost:5173/metrix-game-balance-lab/
-npm run check       # lint, type check, tests (100% coverage required) and build, as in CI
-```
-
-`dev` is the working branch; every push to `prod` deploys the web app to GitHub Pages. Code conventions are in [CLAUDE.md](CLAUDE.md).

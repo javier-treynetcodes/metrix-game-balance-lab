@@ -1967,7 +1967,7 @@ tr.is-new > * {
   text-align: right;
 }
 
-.compare-value.lead {
+.compare-value.is-lead {
   color: var(--color-text);
   font-weight: 700;
 }

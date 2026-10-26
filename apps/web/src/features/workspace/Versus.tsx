@@ -281,7 +281,7 @@ function StatCompare({
         const leader = (stat.a ?? 0) === (stat.b ?? 0) ? 'none' : (stat.a ?? 0) > (stat.b ?? 0) ? 'a' : 'b';
         return (
           <div key={stat.key} className="compare-row">
-            <span className={`compare-value${leader === 'a' ? ' lead' : ''}`}>{stat.a ?? '—'}</span>
+            <span className={`compare-value${leader === 'a' ? ' is-lead' : ''}`}>{stat.a ?? '—'}</span>
             <span className="compare-bar side-a">
               <span style={{ width: `${((stat.a ?? 0) / top) * 100}%` }} />
             </span>
@@ -289,7 +289,7 @@ function StatCompare({
             <span className="compare-bar side-b">
               <span style={{ width: `${((stat.b ?? 0) / top) * 100}%` }} />
             </span>
-            <span className={`compare-value${leader === 'b' ? ' lead' : ''}`}>{stat.b ?? '—'}</span>
+            <span className={`compare-value${leader === 'b' ? ' is-lead' : ''}`}>{stat.b ?? '—'}</span>
           </div>
         );
       })}

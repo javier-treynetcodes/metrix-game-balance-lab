@@ -2,17 +2,21 @@
 
 **Balance your game with data, not guesswork.**
 
+**[▶ Try Métrix live](https://javier-treynetcodes.github.io/metrix-game-balance-lab/)** · no install, no account
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%99%A5-ff6bb2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/javier-treynetcodes)
+![Lighthouse desktop: 100 performance, 100 accessibility, 100 best practices, 100 SEO](https://img.shields.io/badge/Lighthouse%20desktop-100%20%C2%B7%20100%20%C2%B7%20100%20%C2%B7%20100-00c853)
+
+![Métrix demo: import the example catalog, edit a value, read the duel matrix, compare two units in Versus and export the CSV](docs/demo.gif)
+
 Métrix is a balance lab for game designers working in any genre: card games, MOBAs, shooters, strategy, RPGs and board games. Import the catalog of your game (cards, champions, units, weapons, enemies) and Métrix shows you what spreadsheets hide:
 
-- **Clones:** entities that do almost the same thing.
-- **Off-curve entities:** too strong or too weak for their cost.
-- **Duel outcomes:** who beats whom one-on-one, and how fast.
+- **Clones** *(coming soon)*: entities that do almost the same thing.
+- **Off-curve entities** *(coming soon)*: too strong or too weak for their cost.
+- **Duel outcomes:** who beats whom one-on-one, by how much and why.
 - **Walls:** entities that some attackers cannot damage at all.
 
 Everything runs locally in your browser. Your data is never uploaded and there is no account to create.
-
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%99%A5-ff6bb2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/javier-treynetcodes)
-
 
 ## How to use Métrix
 

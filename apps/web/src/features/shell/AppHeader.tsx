@@ -10,7 +10,7 @@ export function AppHeader() {
         <span className="brand-tagline">Game Balance Lab</span>
       </a>
       <nav className="header-links" aria-label="Project">
-        <a className="header-link" href={LINKS.repo} target="_blank" rel="noreferrer">
+        <a className="header-link" href={LINKS.repo} target="_blank" rel="noreferrer" aria-label="Métrix on GitHub">
           <GitHubIcon />
           <span>GitHub</span>
         </a>

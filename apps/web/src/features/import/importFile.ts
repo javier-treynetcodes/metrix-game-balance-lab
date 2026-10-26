@@ -1,5 +1,5 @@
 import { importEntities, type ImportResult } from '@metrix/core';
-import type { Catalog } from '../../state/catalog';
+import { createCatalog, type Catalog } from '../../state/catalog';
 
 /** Larger files are almost certainly not a catalog and would freeze the tab while parsing. */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -46,12 +46,6 @@ export function importText(text: string, source: string): ImportOutcome {
   }
   return {
     kind: 'imported',
-    catalog: {
-      source,
-      importedAt: new Date().toISOString(),
-      channels: result.channels,
-      entities: result.entities,
-      warnings: result.issues,
-    },
+    catalog: createCatalog(source, result.layout, result.channels, result.entities, result.issues),
   };
 }

@@ -1,6 +1,8 @@
 import type { Channel, Entity } from '../types';
+import { ENTITY_MESSAGES, validateEntity, type EntityProblemCode } from '../validateEntity';
+import { classifyHeader, type ColumnRole } from './columns';
 import { parseCsv, type CsvSyntaxError, type Delimiter } from './parseCsv';
-import { parseNumber } from './parseNumber';
+import { parseInteger } from './parseInteger';
 
 export type ImportIssueCode =
   | 'empty-file'
@@ -9,18 +11,18 @@ export type ImportIssueCode =
   | 'missing-column'
   | 'duplicate-column'
   | 'empty-header'
+  | 'too-many-channels'
+  | 'hybrid-needs-two-channels'
+  | 'missing-hybrid-column'
+  | 'reserved-column'
   | 'row-too-long'
   | 'row-too-short'
-  | 'missing-id'
-  | 'invalid-id'
   | 'duplicate-id'
-  | 'missing-name'
-  | 'not-a-number'
-  | 'negative-value'
-  | 'negative-defense'
-  | 'defense-without-attack'
+  | 'not-a-whole-number'
+  | EntityProblemCode
   | 'text-column-ignored'
   | 'unsupported-column'
+  | 'rate-not-used'
   | 'missing-cost'
   | 'missing-hp';
 
@@ -34,31 +36,33 @@ export interface ImportIssue {
   lines?: number[];
 }
 
+/** How the source file was laid out, so an export can keep the same columns, order and separator. */
+export interface CsvLayout {
+  delimiter: Delimiter;
+  /** Headers as written in the file (trimmed), in order. */
+  headers: string[];
+}
+
 export interface ImportResult {
   /** True when there are no errors. Warnings do not block the import. */
   ok: boolean;
   delimiter: Delimiter;
+  layout: CsvLayout;
   channels: Channel[];
   entities: Entity[];
   issues: ImportIssue[];
 }
 
-type ColumnRole =
-  | { kind: 'id' | 'name' | 'category' }
-  | { kind: 'cost' | 'hp' | 'rate' }
-  | { kind: 'atk' | 'def'; channel: string }
-  | { kind: 'tag'; key: string }
-  | { kind: 'stat'; key: string }
-  | { kind: 'ignored' };
+type Role = ColumnRole | { kind: 'ignored' };
 
 interface Column {
   /** Header as written in the file (trimmed). */
   name: string;
-  role: ColumnRole;
+  role: Role;
 }
 
-const FIXED_COLUMNS = ['id', 'name', 'category', 'cost', 'hp', 'rate'] as const;
-const NON_NEGATIVE = new Set(['hp', 'rate', 'atk']);
+/** Métrix compares exactly this many damage channels. */
+export const CHANNEL_COUNT = 2;
 
 const DELIMITER_NAMES: Record<Delimiter, string> = { ',': 'comma', ';': 'semicolon', '\t': 'tab' };
 
@@ -69,23 +73,8 @@ const QUOTE_MESSAGES: Record<CsvSyntaxError['code'], string> = {
     'A double quote appears inside a value that is not wrapped in quotes. Wrap the whole value in double quotes and double the inner quote, e.g. "12"" Cannon". Fix quote errors first, then import again to check the rest of the file.',
 };
 
-function classify(canonical: string): ColumnRole {
-  if ((FIXED_COLUMNS as readonly string[]).includes(canonical)) {
-    return { kind: canonical as (typeof FIXED_COLUMNS)[number] };
-  }
-  const separator = canonical.indexOf(':');
-  if (separator > 0) {
-    const prefix = canonical.slice(0, separator);
-    const key = canonical.slice(separator + 1).trim();
-    if (key !== '' && (prefix === 'atk' || prefix === 'def')) return { kind: prefix, channel: key };
-    if (key !== '' && prefix === 'tag') return { kind: 'tag', key };
-    if (prefix === 'pen') return { kind: 'ignored' };
-  }
-  return { kind: 'stat', key: canonical };
-}
-
 /** Default display name of a channel: "Channel N" for numeric keys, otherwise the key capitalized. */
-function labelFor(key: string): string {
+export function labelFor(key: string): string {
   if (/^\d+$/.test(key)) return `Channel ${key}`;
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
@@ -105,6 +94,10 @@ class IssueLog {
     if (entry.lines.at(-1) !== line) entry.lines.push(line);
   }
 
+  hasErrors(): boolean {
+    return this.all.some((issue) => issue.severity === 'error');
+  }
+
   get all(): ImportIssue[] {
     return [...this.byKey.values()];
   }
@@ -112,18 +105,21 @@ class IssueLog {
 
 /**
  * Imports a CSV catalog that follows the Métrix template (see `CSV_TEMPLATE`).
- * All or nothing: any error rejects the whole file, and every error is reported at once
- * with the lines to fix. Pure and synchronous: safe to run in a Web Worker.
+ * Every game value must be a whole number of 0 or more. All or nothing: any error rejects the
+ * whole file, and every error is reported at once with the lines to fix.
+ * Pure and synchronous: safe to run in a Web Worker.
  */
 export function importEntities(text: string): ImportResult {
   const { delimiter, records, syntaxErrors } = parseCsv(text);
   const log = new IssueLog();
+  let headers: string[] = [];
   const result = (channels: Channel[], entities: Entity[]): ImportResult => {
     const issues = log.all;
-    const ok = issues.every((issue) => issue.severity !== 'error');
+    const ok = !log.hasErrors();
     return {
       ok,
       delimiter,
+      layout: { delimiter, headers },
       channels: ok ? channels : [],
       entities: ok ? entities : [],
       issues,
@@ -137,8 +133,6 @@ export function importEntities(text: string): ImportResult {
     }
     return result([], []);
   }
-  const decimalComma = delimiter === ';';
-  const separatorName = DELIMITER_NAMES[delimiter];
 
   const [headerRecord, ...dataRows] = records;
   if (!headerRecord) {
@@ -151,19 +145,13 @@ export function importEntities(text: string): ImportResult {
   }
 
   // Resolve every header to its role.
+  headers = headerRecord.cells.map((cell) => cell.trim());
   const seen = new Set<string>();
-  const columns: Column[] = headerRecord.cells.map((cell) => {
-    const name = cell.trim();
-    return { name, role: resolveRole(name) };
-  });
+  const columns: Column[] = headers.map((name) => ({ name, role: resolveRole(name) }));
 
-  function resolveRole(original: string): ColumnRole {
+  function resolveRole(original: string): Role {
     if (original === '') {
-      log.add({
-        severity: 'warning',
-        code: 'empty-header',
-        message: 'A column without a header was ignored.',
-      });
+      log.add({ severity: 'warning', code: 'empty-header', message: 'A column without a header was kept as is and not analyzed.' });
       return { kind: 'ignored' };
     }
     const canonical = original.toLowerCase();
@@ -177,16 +165,35 @@ export function importEntities(text: string): ImportResult {
       return { kind: 'ignored' };
     }
     seen.add(canonical);
-    const role = classify(canonical);
-    if (role.kind === 'ignored') {
-      log.add({
-        severity: 'warning',
-        code: 'unsupported-column',
-        message: `Column "${original}" is not supported yet and was ignored.`,
-        column: original,
-      });
+    const role = classifyHeader(canonical);
+    switch (role.kind) {
+      case 'unsupported':
+        log.add({
+          severity: 'warning',
+          code: 'unsupported-column',
+          message: `Column "${original}" is not supported and was kept as is.`,
+          column: original,
+        });
+        return { kind: 'ignored' };
+      case 'rate':
+        log.add({
+          severity: 'warning',
+          code: 'rate-not-used',
+          message: `Métrix compares entities by hits, not by attack speed, so column "${original}" was kept as is and not analyzed.`,
+          column: original,
+        });
+        return { kind: 'ignored' };
+      case 'reserved':
+        log.add({
+          severity: 'error',
+          code: 'reserved-column',
+          message: `Column "${original}" is not valid. Hybrid columns name a channel: atk:hybrid:1 and atk:hybrid:2 for attack, def:hybrid:1 and def:hybrid:2 for armor.`,
+          column: original,
+        });
+        return { kind: 'ignored' };
+      default:
+        return role;
     }
-    return role;
   }
 
   for (const required of ['id', 'name'] as const) {
@@ -199,51 +206,62 @@ export function importEntities(text: string): ImportResult {
       });
     }
   }
-  if (!log.all.every((issue) => issue.code !== 'missing-column')) return result([], []);
 
-  // Free-text columns without a prefix are ignored (only fully numeric extra columns become stats).
+  // Channels in order of first appearance, at most two.
+  const channelKeys: string[] = [];
+  for (const { role } of columns) {
+    if ('channel' in role && !channelKeys.includes(role.channel)) channelKeys.push(role.channel);
+  }
+  if (channelKeys.length > CHANNEL_COUNT) {
+    log.add({
+      severity: 'error',
+      code: 'too-many-channels',
+      message: `Métrix works with two damage channels, and this file has ${channelKeys.length}: ${channelKeys.join(', ')}. Keep two, and turn attacks that hit both into hybrid attacks with atk:hybrid:<channel> columns.`,
+    });
+  }
+  const hybridAttackChannels = columns.flatMap(({ role }) => (role.kind === 'hybridAtk' ? [role.channel] : []));
+  if (hybridAttackChannels.length > 0) {
+    if (channelKeys.length < CHANNEL_COUNT) {
+      log.add({
+        severity: 'error',
+        code: 'hybrid-needs-two-channels',
+        message: 'Hybrid attacks hit two channels, but this file has only one. Add the atk: and def: columns of the second channel.',
+      });
+    } else {
+      for (const key of channelKeys) {
+        if (!hybridAttackChannels.includes(key)) {
+          log.add({
+            severity: 'error',
+            code: 'missing-hybrid-column',
+            message: `Hybrid attacks need one column per channel. Add column "atk:hybrid:${key}".`,
+            column: `atk:hybrid:${key}`,
+          });
+        }
+      }
+    }
+  }
+  if (log.hasErrors()) return result([], []);
+
+  const channels: Channel[] = channelKeys.map((key) => ({ key, label: labelFor(key) }));
+
+  // Extra columns are analyzed only when every value is a whole number; otherwise they are kept as is.
   columns.forEach((column, index) => {
     const { role } = column;
     if (role.kind !== 'stat') return;
-    const hasText = dataRows.some(({ cells }) =>
-      Number.isNaN(parseNumber(cells[index] ?? '', decimalComma)),
-    );
+    const hasText = dataRows.some(({ cells }) => Number.isNaN(parseInteger(cells[index] ?? '')));
     if (hasText) {
       log.add({
         severity: 'warning',
         code: 'text-column-ignored',
-        message: `Column "${column.name}" contains text and was ignored. Rename it to "tag:${role.key}" to use it as a tag.`,
+        message: `Column "${column.name}" is not made of whole numbers, so it was kept as is and not analyzed. Rename it to "tag:${role.key}" to use it as a tag.`,
         column: column.name,
       });
       column.role = { kind: 'ignored' };
     }
   });
 
-  // Channels in order of first appearance.
-  const channelOrder: string[] = [];
-  const attackChannels = new Set<string>();
-  const defenseChannels = new Set<string>();
-  for (const { role } of columns) {
-    if (role.kind !== 'atk' && role.kind !== 'def') continue;
-    if (!channelOrder.includes(role.channel)) channelOrder.push(role.channel);
-    (role.kind === 'atk' ? attackChannels : defenseChannels).add(role.channel);
-  }
-  const channels: Channel[] = channelOrder.map((key) => ({
-    key,
-    label: labelFor(key),
-    mitigation: defenseChannels.has(key) ? 'percent' : 'none',
-  }));
-  for (const key of defenseChannels) {
-    if (!attackChannels.has(key)) {
-      log.add({
-        severity: 'warning',
-        code: 'defense-without-attack',
-        message: `Channel "${key}" has a defense column but no attack column.`,
-        column: `def:${key}`,
-      });
-    }
-  }
-
+  const separatorName = DELIMITER_NAMES[delimiter];
+  const hasCost = columns.some(({ role }) => role.kind === 'cost');
   const entities: Entity[] = [];
   const ids = new Set<string>();
 
@@ -263,7 +281,9 @@ export function importEntities(text: string): ImportResult {
       return;
     }
 
-    const entity: Entity = { id: '', name: '', rate: 1, atk: {}, def: {}, tags: {}, stats: {} };
+    const entity: Entity = { id: '', name: '', atk: {}, def: {}, hybridDef: {}, tags: {}, stats: {}, extra: {} };
+    const hybrid: Record<string, number> = {};
+    let hybridCells = 0;
     let rowValid = true;
 
     // Row length was validated above, so every cell has a matching column.
@@ -285,47 +305,28 @@ export function importEntities(text: string): ImportResult {
           if (raw !== '') entity.tags[role.key] = raw;
           return;
         case 'ignored':
+          entity.extra[String(index)] = cell;
           return;
+        case 'stat': {
+          const value = parseInteger(raw);
+          if (value !== undefined) entity.stats[role.key] = value;
+          return;
+        }
       }
 
-      const value = parseNumber(raw, decimalComma);
-      if (Number.isNaN(value)) {
+      const value = parseInteger(raw);
+      if (value !== undefined && (Number.isNaN(value) || value < 0)) {
         log.add(
           {
             severity: 'error',
-            code: 'not-a-number',
-            message: `Column "${column}" must contain numbers only. Remove units, symbols and text (write 600, not "600 hp") and use ${decimalComma ? 'a comma or a dot' : 'a dot'} for decimals.`,
+            code: 'not-a-whole-number',
+            message: `Column "${column}" must contain whole numbers of 0 or more: write 48, not 48.5, -48 or "48 hp".`,
             column,
           },
           line,
         );
         rowValid = false;
         return;
-      }
-      if (value !== undefined && value < 0) {
-        if (role.kind === 'def') {
-          log.add(
-            {
-              severity: 'warning',
-              code: 'negative-defense',
-              message: `Column "${column}" has negative values; they are treated as 0 in formulas.`,
-              column,
-            },
-            line,
-          );
-        } else if (NON_NEGATIVE.has(role.kind)) {
-          log.add(
-            {
-              severity: 'error',
-              code: 'negative-value',
-              message: `Column "${column}" cannot be negative. Use 0 or a positive number.`,
-              column,
-            },
-            line,
-          );
-          rowValid = false;
-          return;
-        }
       }
 
       switch (role.kind) {
@@ -335,39 +336,44 @@ export function importEntities(text: string): ImportResult {
         case 'def':
           entity.def[role.channel] = value ?? 0;
           return;
-        case 'rate':
-          entity.rate = value ?? 1;
+        case 'hybridAtk':
+          if (value !== undefined) {
+            hybrid[role.channel] = value;
+            hybridCells++;
+          }
           return;
-        case 'stat':
-          if (value !== undefined) entity.stats[role.key] = value;
+        case 'hybridDef':
+          if (value !== undefined) entity.hybridDef[role.channel] = value;
           return;
-        default:
+        case 'cost':
+        case 'hp':
           if (value !== undefined) entity[role.kind] = value;
       }
     });
 
-    if (entity.id === '') {
+    if (hybridCells > 0) {
+      if (hybridCells < channels.length) {
+        log.add({ severity: 'error', code: 'incomplete-hybrid', message: ENTITY_MESSAGES['incomplete-hybrid'] }, line);
+        rowValid = false;
+      } else {
+        entity.hybridAtk = hybrid;
+      }
+    }
+
+    for (const problem of validateEntity(entity, channels)) {
       log.add(
         {
           severity: 'error',
-          code: 'missing-id',
-          message: 'Some rows have no id. Give every row a unique id.',
+          code: problem.code,
+          message: problem.message,
+          ...(problem.field === 'id' && problem.code === 'invalid-id' ? { column: 'id' } : {}),
+          ...(problem.field === 'hp' ? { column: 'hp' } : {}),
         },
         line,
       );
       rowValid = false;
-    } else if (/\s/.test(entity.id)) {
-      log.add(
-        {
-          severity: 'error',
-          code: 'invalid-id',
-          message: 'Ids cannot contain spaces. Use hyphens instead, e.g. "heavy-unit".',
-          column: 'id',
-        },
-        line,
-      );
-      rowValid = false;
-    } else if (ids.has(entity.id)) {
+    }
+    if (entity.id !== '' && ids.has(entity.id)) {
       log.add(
         {
           severity: 'error',
@@ -378,41 +384,19 @@ export function importEntities(text: string): ImportResult {
         line,
       );
       rowValid = false;
-    } else {
-      ids.add(entity.id);
     }
-    if (entity.name === '') {
-      log.add(
-        {
-          severity: 'error',
-          code: 'missing-name',
-          message: 'Some rows have no name. Fill in the name column.',
-        },
-        line,
-      );
-      rowValid = false;
-    }
+    ids.add(entity.id);
     if (!rowValid) return;
 
-    if (entity.cost === undefined && columns.some(({ role }) => role.kind === 'cost')) {
+    if (entity.cost === undefined && hasCost) {
       log.add(
-        {
-          severity: 'warning',
-          code: 'missing-cost',
-          message: 'Entities without cost are left out of the cost/power curve.',
-          column: 'cost',
-        },
+        { severity: 'warning', code: 'missing-cost', message: 'Entities without cost cannot be compared by cost.', column: 'cost' },
         line,
       );
     }
     if (entity.hp === undefined) {
       log.add(
-        {
-          severity: 'warning',
-          code: 'missing-hp',
-          message: 'Entities without hp are left out of duels.',
-          column: 'hp',
-        },
+        { severity: 'warning', code: 'missing-hp', message: 'Entities without hp cannot be defeated, so they have no hits to defeat.', column: 'hp' },
         line,
       );
     }

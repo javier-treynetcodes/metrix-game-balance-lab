@@ -7,7 +7,7 @@ import { Workspace } from './features/workspace/Workspace';
 import { useCatalog } from './state/useCatalog';
 
 export function App() {
-  const { catalog, setCatalog, updateChannel, dismissWarnings } = useCatalog();
+  const { catalog, discardedLegacy, replace, ...actions } = useCatalog();
   const [importing, setImporting] = useState(false);
 
   return (
@@ -21,17 +21,17 @@ export function App() {
           <Workspace
             key={catalog.importedAt}
             catalog={catalog}
+            actions={actions}
             onImportAnother={() => setImporting(true)}
-            onClear={() => setCatalog(null)}
-            onChannelChange={updateChannel}
-            onDismissWarnings={dismissWarnings}
+            onClear={() => replace(null)}
           />
         ) : (
           <div className="stack">
             {!catalog && <Welcome />}
             <ImportPanel
+              legacyNotice={discardedLegacy && !catalog}
               onImported={(next) => {
-                setCatalog(next);
+                replace(next);
                 setImporting(false);
               }}
               {...(catalog ? { onCancel: () => setImporting(false) } : {})}

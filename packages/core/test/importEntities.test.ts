@@ -5,181 +5,156 @@ const codes = (result: ImportResult): ImportIssueCode[] => result.issues.map((is
 const issue = (result: ImportResult, code: ImportIssueCode) =>
   result.issues.find((entry) => entry.code === code);
 
-const SAMPLE = [
-  'id,name,category,cost,hp,atk:physical,atk:magic,def:physical,def:magic,rate,tag:role',
-  'guardian,Stone Guardian,champion,4800,680,55,0,48,40,0.65,tank',
-  'archer,Wind Archer,champion,4500,560,68,0,26,30,0.72,marksman',
-].join('\n');
+const HEADER = 'id,name,hp,atk:1,def:1,atk:2,def:2';
 
 describe('importEntities', () => {
-  it('imports the documented format', () => {
-    const result = importEntities(SAMPLE);
-    expect(result.ok).toBe(true);
-    expect(result.issues).toEqual([]);
-    expect(result.delimiter).toBe(',');
-    expect(result.channels).toEqual([
-      { key: 'physical', label: 'Physical', mitigation: 'percent' },
-      { key: 'magic', label: 'Magic', mitigation: 'percent' },
-    ]);
-    expect(result.entities[0]).toEqual({
-      id: 'guardian',
-      name: 'Stone Guardian',
-      category: 'champion',
-      cost: 4800,
-      hp: 680,
-      rate: 0.65,
-      atk: { physical: 55, magic: 0 },
-      def: { physical: 48, magic: 40 },
-      tags: { role: 'tank' },
-      stats: {},
-    });
-  });
-
-  it('creates true-damage channels when there is no defense column', () => {
-    const result = importEntities('id,name,hp,atk:true\na,A,10,5');
-    expect(result.channels).toEqual([{ key: 'true', label: 'True', mitigation: 'none' }]);
-  });
-
-  it('accepts semicolons with decimal commas', () => {
-    const result = importEntities('id;name;hp;rate\na;A;10;0,65');
-    expect(result.delimiter).toBe(';');
-    expect(result.entities[0]?.rate).toBe(0.65);
-  });
-
   it('imports the official template without issues', () => {
     const result = importEntities(CSV_TEMPLATE);
     expect(result.ok).toBe(true);
     expect(result.issues).toEqual([]);
-    expect(result.entities).toHaveLength(4);
     expect(result.channels).toEqual([
-      { key: '1', label: 'Channel 1', mitigation: 'percent' },
-      { key: '2', label: 'Channel 2', mitigation: 'percent' },
-      { key: '3', label: 'Channel 3', mitigation: 'percent' },
+      { key: '1', label: 'Channel 1' },
+      { key: '2', label: 'Channel 2' },
     ]);
+    expect(result.entities).toHaveLength(5);
+    const [heavy, , , hybrid] = result.entities;
+    expect(heavy).toEqual({
+      id: 'heavy',
+      name: 'Heavy Unit',
+      category: 'unit',
+      cost: 48,
+      hp: 680,
+      atk: { '1': 55, '2': 0 },
+      def: { '1': 48, '2': 40 },
+      hybridDef: { '1': 10, '2': 10 },
+      tags: { role: 'tank' },
+      stats: {},
+      extra: {},
+    });
+    expect(hybrid?.hybridAtk).toEqual({ '1': 30, '2': 25 });
+    expect(result.layout).toEqual({ delimiter: ',', headers: CSV_TEMPLATE.split('\n')[0]?.split(',') });
   });
 
-  it('reads headers case-insensitively', () => {
-    const result = importEntities('ID,Name,HP,ATK:Physical\na,A,10,3');
+  it('names channels after their columns, case-insensitively', () => {
+    const result = importEntities('ID,Name,ATK:Physical,DEF:magic\na,A,10,5');
+    expect(result.channels).toEqual([
+      { key: 'physical', label: 'Physical' },
+      { key: 'magic', label: 'Magic' },
+    ]);
+    expect(result.entities[0]).toMatchObject({ atk: { physical: 10 }, def: { magic: 5 } });
+  });
+
+  it('fills empty attack and defense cells with 0 and warns about missing hp and cost', () => {
+    const result = importEntities('id,name,cost,hp,atk:1,def:1,def:hybrid:1,category,tag:role\na,A,,,,,,,');
     expect(result.ok).toBe(true);
-    expect(result.entities[0]).toMatchObject({ id: 'a', name: 'A', hp: 10, atk: { physical: 3 } });
+    expect(result.entities[0]).toEqual({
+      id: 'a',
+      name: 'A',
+      atk: { '1': 0 },
+      def: { '1': 0 },
+      hybridDef: {},
+      tags: {},
+      stats: {},
+      extra: {},
+    });
+    expect(codes(result)).toEqual(['missing-cost', 'missing-hp']);
   });
 
-  it('applies defaults for empty cells', () => {
-    const result = importEntities('id,name,cost,hp,rate,atk:x,def:x,speed,category,tag:role\na,A,,,,,,,,');
-    const [entity] = result.entities;
-    expect(entity).toEqual({ id: 'a', name: 'A', rate: 1, atk: { x: 0 }, def: { x: 0 }, tags: {}, stats: {} });
-    expect(issue(result, 'missing-cost')?.lines).toEqual([2]);
-    expect(issue(result, 'missing-hp')?.lines).toEqual([2]);
+  it('accepts semicolon and tab separated files', () => {
+    expect(importEntities('id;name;hp\na;A;10').entities[0]?.hp).toBe(10);
+    expect(importEntities('id\tname\thp\na\tA\t10').delimiter).toBe('\t');
+  });
+
+  it('keeps whole-number extra columns as stats, negative values included', () => {
+    const result = importEntities('id,name,hp,range\na,A,1,-3');
+    expect(result.entities[0]?.stats).toEqual({ range: -3 });
+  });
+
+  it('keeps other columns as written, for the export', () => {
+    const result = importEntities('id,name,notes,pen:1,rate,,hp\na,A, tough one ,5,0.7,x,10');
     expect(result.ok).toBe(true);
+    expect(codes(result)).toEqual(['unsupported-column', 'rate-not-used', 'empty-header', 'text-column-ignored']);
+    expect(issue(result, 'text-column-ignored')?.message).toContain('tag:notes');
+    expect(result.entities[0]?.extra).toEqual({ '2': ' tough one ', '3': '5', '4': '0.7', '5': 'x' });
   });
 
-  it('rejects rows shorter than the header', () => {
-    const result = importEntities('id,name,hp,speed\na,A\nb,B,10,2');
-    expect(issue(result, 'row-too-short')).toMatchObject({ severity: 'error', lines: [2] });
-    expect(issue(result, 'row-too-short')?.message).toContain('commas');
-    expect(result.entities).toEqual([]);
-  });
-
-  it('keeps fully numeric extra columns as stats', () => {
-    const result = importEntities('id,name,hp,speed\na,A,10,3.5');
-    expect(result.entities[0]?.stats).toEqual({ speed: 3.5 });
-  });
-
-  it('ignores free-text extra columns with a warning', () => {
-    const result = importEntities('id,name,hp,rarity\na,A,10,epic\nb,B,10,3');
-    expect(result.ok).toBe(true);
-    expect(issue(result, 'text-column-ignored')).toMatchObject({ severity: 'warning', column: 'rarity' });
-    expect(result.entities[1]?.stats).toEqual({});
-  });
-
-  it('ignores pen: columns as not supported yet', () => {
-    const result = importEntities('id,name,hp,pen:physical\na,A,10,5');
-    expect(issue(result, 'unsupported-column')).toMatchObject({ severity: 'warning' });
-    expect(result.entities[0]?.stats).toEqual({});
-  });
-
-  it('treats prefixed columns without a key as stats', () => {
-    const result = importEntities('id,name,hp,atk:\na,A,10,5');
-    expect(result.entities[0]?.stats).toEqual({ 'atk:': 5 });
-  });
-
-  it('warns about headerless columns and defense without attack', () => {
-    const result = importEntities('id,name,hp,,def:magic\na,A,10,x,4');
-    expect(codes(result)).toEqual(['empty-header', 'defense-without-attack']);
-    expect(result.ok).toBe(true);
-  });
-
-  it('allows negative defense with a warning', () => {
-    const result = importEntities('id,name,hp,atk:x,def:x\na,A,10,1,-5');
-    expect(result.ok).toBe(true);
-    expect(issue(result, 'negative-defense')?.lines).toEqual([2]);
-    expect(result.entities[0]?.def).toEqual({ x: -5 });
-  });
-
-  it('rejects negative hp, rate and attack', () => {
-    const result = importEntities('id,name,hp,rate,atk:x\na,A,-1,1,1\nb,B,1,-1,1\nc,C,1,1,-1\nd,D,1,1,1');
-    expect(result.ok).toBe(false);
-    expect(result.issues.filter((entry) => entry.code === 'negative-value')).toHaveLength(3);
-    expect(result.entities).toEqual([]);
-  });
-
-  it('allows negative extra stats and cost', () => {
-    const result = importEntities('id,name,hp,cost,luck\na,A,1,-2,-3');
-    expect(result.ok).toBe(true);
-    expect(result.entities[0]).toMatchObject({ cost: -2, stats: { luck: -3 } });
-  });
-
-  it('rejects text in numeric columns', () => {
-    const result = importEntities('id,name,hp\na,A,lots\nb,B,lots');
-    expect(issue(result, 'not-a-number')).toMatchObject({ column: 'hp', lines: [2, 3] });
-    expect(result.entities).toEqual([]);
-  });
-
-  it('validates ids and names', () => {
-    const result = importEntities('id,name,hp\n,Nameless,1\nbad id,Bad,1\nok,,1\ndup,Dup,1\ndup,Dup,1');
-    expect(codes(result)).toEqual(['missing-id', 'invalid-id', 'missing-name', 'duplicate-id']);
-    expect(issue(result, 'duplicate-id')?.lines).toEqual([6]);
-    expect(result.entities).toEqual([]);
-  });
-
-  it('rejects rows longer than the header and explains quoting for the detected separator', () => {
-    const comma = importEntities('id,name\na,A,extra');
-    expect(issue(comma, 'row-too-long')?.lines).toEqual([2]);
-    expect(issue(comma, 'row-too-long')?.message).toContain('"Ranged Unit, Elite"');
-    expect(comma.entities).toEqual([]);
-    const tab = importEntities('id\tname\na\tA\textra');
-    expect(issue(tab, 'row-too-long')?.message).toContain('tab');
-  });
-
-  it('is all or nothing: one error rejects every row and channel', () => {
-    const result = importEntities('id,name,hp,atk:x\na,A,10,1\nb,B,lots,1\nc,C,10,1');
-    expect(result.ok).toBe(false);
-    expect(result.entities).toEqual([]);
+  it('reads prefixes without a key as extra columns', () => {
+    const result = importEntities('id,name,tag:,atk:\na,A,1,2');
+    expect(result.entities[0]?.stats).toEqual({ 'tag:': 1, 'atk:': 2 });
     expect(result.channels).toEqual([]);
   });
 
-  it('reports every error in the file at once', () => {
-    const result = importEntities('id,name,hp\na,A,lots\na,,10\nb c,B,-1');
-    expect(codes(result)).toEqual([
-      'not-a-number',
-      'duplicate-id',
-      'missing-name',
-      'negative-value',
-      'invalid-id',
-    ]);
+  it('rejects reserved hybrid column names', () => {
+    for (const header of ['atk:hybrid', 'def:hybrid', 'atk:hybrid:', 'def:hybrid:hybrid']) {
+      const result = importEntities(`id,name,atk:1,atk:2,${header}\na,A,0,0,1`);
+      expect(issue(result, 'reserved-column')?.column).toBe(header);
+    }
   });
 
-  it('suggests decimal commas only for semicolon files', () => {
-    expect(issue(importEntities('id,name,hp\na,A,x'), 'not-a-number')?.message).toContain('use a dot');
-    expect(issue(importEntities('id;name;hp\na;A;x'), 'not-a-number')?.message).toContain('a comma or a dot');
+  it('allows two channels at most', () => {
+    const result = importEntities('id,name,atk:1,atk:2,atk:3\na,A,1,0,0');
+    expect(result.ok).toBe(false);
+    expect(issue(result, 'too-many-channels')?.message).toContain('1, 2, 3');
   });
 
-  it('lists a line only once per issue', () => {
-    const result = importEntities('id,name,hp,atk:x\na,A,-1,-1');
-    expect(issue(result, 'negative-value')?.lines).toEqual([2]);
-    // Two stray quotes on the same line raise the same issue twice; the line is kept once.
-    const quotes = importEntities('id,name\na,12" x 4" Cannon');
-    expect(issue(quotes, 'stray-quote')?.lines).toEqual([2]);
+  it('needs two channels and a column per channel for hybrid attacks', () => {
+    expect(codes(importEntities('id,name,atk:hybrid:1\na,A,1'))).toEqual(['hybrid-needs-two-channels']);
+    const result = importEntities('id,name,atk:1,def:2,atk:hybrid:1\na,A,0,0,1');
+    expect(issue(result, 'missing-hybrid-column')?.column).toBe('atk:hybrid:2');
+  });
+
+  it('reads hybrid attacks and hybrid armor', () => {
+    const result = importEntities(
+      'id,name,atk:1,atk:2,atk:hybrid:1,atk:hybrid:2,def:hybrid:2\nh,H,0,0,30,0,\nd,D,5,0,,,4',
+    );
+    expect(result.ok).toBe(true);
+    expect(result.entities[0]?.hybridAtk).toEqual({ '1': 30, '2': 0 });
+    expect(result.entities[1]).toMatchObject({ atk: { '1': 5, '2': 0 }, hybridDef: { '2': 4 } });
+    expect(result.entities[1]?.hybridAtk).toBeUndefined();
+  });
+
+  it('rejects a hybrid attack with only one value', () => {
+    const result = importEntities('id,name,atk:hybrid:1,atk:hybrid:2\nh,H,30,');
+    expect(issue(result, 'incomplete-hybrid')?.lines).toEqual([2]);
+  });
+
+  it('allows one kind of damage per entity', () => {
+    const result = importEntities('id,name,atk:1,atk:2,atk:hybrid:1,atk:hybrid:2\na,A,5,5,,\nb,B,5,0,1,1');
+    expect(issue(result, 'mixed-attack')?.lines).toEqual([2, 3]);
+  });
+
+  it('accepts whole numbers of 0 or more only', () => {
+    const result = importEntities(`${HEADER}\na,A,10.5,1,1,0,0\nb,B,10,-1,0,0,0\nc,C,lots,1,0,0,0`);
+    expect(result.ok).toBe(false);
+    expect(issue(result, 'not-a-whole-number')).toMatchObject({ column: 'hp', lines: [2, 4] });
+    expect(issue(result, 'not-a-whole-number')?.message).toContain('whole numbers');
+    expect(result.issues.find((entry) => entry.column === 'atk:1')?.lines).toEqual([3]);
+  });
+
+  it('requires at least 1 hp', () => {
+    expect(issue(importEntities('id,name,hp\na,A,0'), 'zero-hp')).toMatchObject({ column: 'hp', lines: [2] });
+  });
+
+  it('validates ids and names', () => {
+    const result = importEntities('id,name\n,No id\n,Also no id\nbad id,Spaces\nok,\ndup,One\ndup,Two');
+    expect(issue(result, 'missing-id')?.lines).toEqual([2, 3]);
+    expect(issue(result, 'invalid-id')).toMatchObject({ column: 'id', lines: [4] });
+    expect(issue(result, 'missing-name')?.lines).toEqual([5]);
+    expect(issue(result, 'duplicate-id')?.lines).toEqual([7]);
+  });
+
+  it('rejects rows longer than the header and explains quoting for the detected separator', () => {
+    expect(issue(importEntities('id,name\na,A,extra'), 'row-too-long')?.message).toContain('"Ranged Unit, Elite"');
+    expect(issue(importEntities('id\tname\na\tA\textra'), 'row-too-long')?.message).toContain('Ranged Unit\t Elite');
+    expect(issue(importEntities('id;name;hp\na;A'), 'row-too-short')?.message).toContain('semicolons');
+    expect(codes(importEntities('id,name,range\na,A'))).toEqual(['row-too-short']);
+  });
+
+  it('is all or nothing: one error rejects every row and channel', () => {
+    const result = importEntities(`${HEADER}\na,A,10,1,0,0,0\nb,B,oops,1,0,0,0`);
+    expect(result.ok).toBe(false);
+    expect(result.entities).toEqual([]);
+    expect(result.channels).toEqual([]);
   });
 
   it('reports only quote errors when the file has any', () => {
@@ -187,30 +162,37 @@ describe('importEntities', () => {
     expect(codes(result)).toEqual(['stray-quote', 'unclosed-quote']);
     expect(issue(result, 'stray-quote')?.lines).toEqual([2]);
     expect(issue(result, 'unclosed-quote')?.lines).toEqual([3]);
-    expect(result.entities).toEqual([]);
+  });
+
+  it('lists a line only once per issue', () => {
+    // Two stray quotes on the same line raise the same issue twice; the line is kept once.
+    const quotes = importEntities('id,name\na,12" x 4" Cannon');
+    expect(issue(quotes, 'stray-quote')?.lines).toEqual([2]);
   });
 
   it('rejects duplicate columns', () => {
     const result = importEntities('id,name,HP,hp\na,A,1,2');
     expect(issue(result, 'duplicate-column')).toMatchObject({ severity: 'error', column: 'hp' });
-    expect(result.ok).toBe(false);
   });
 
   it('requires id and name columns', () => {
-    const result = importEntities('title,hp\nA,10');
-    expect(codes(result)).toEqual(['missing-column', 'missing-column']);
-    expect(result.entities).toEqual([]);
+    const result = importEntities('hp\n10');
+    expect(result.issues.filter((entry) => entry.code === 'missing-column').map((entry) => entry.column)).toEqual([
+      'id',
+      'name',
+    ]);
   });
 
   it('reports an empty file', () => {
     const result = importEntities('   \n');
     expect(result.ok).toBe(false);
     expect(codes(result)).toEqual(['empty-file']);
+    expect(result.layout.headers).toEqual([]);
   });
 
   it('imports 5,000 entities well under the 2 s budget', () => {
-    const rows = ['id,name,cost,hp,atk:physical,atk:magic,def:physical,def:magic,rate,tag:role'];
-    for (let i = 0; i < 5000; i++) rows.push(`e${i},Entity ${i},${i},500,50,20,30,30,0.7,tank`);
+    const rows = ['id,name,cost,hp,atk:1,def:1,atk:2,def:2,atk:hybrid:1,atk:hybrid:2,def:hybrid:1,def:hybrid:2'];
+    for (let i = 0; i < 5000; i++) rows.push(`e${i},Entity ${i},${i},500,50,30,0,30,,,5,5`);
     const start = performance.now();
     const result = importEntities(rows.join('\n'));
     const elapsed = performance.now() - start;

@@ -1,80 +1,88 @@
 import { useMemo, useState } from 'react';
-import { duelMatrix, type Channel, type Duel, type Entity, type TimeToDefeat } from '@metrix/core';
-import { formatTime, plural } from '../../lib/format';
+import { matchupMatrix, metricValue, METRICS, winnerBy, hitsMargin, type Channel, type Matchup, type Metric } from '@metrix/core';
+import { plural } from '../../lib/format';
+import type { GenreProfile } from '../../lib/genres';
+import { wallReason } from '../../lib/explain';
+import { formatHits, formatSigned, metricHint, metricName } from '../../lib/metrics';
+import type { Row } from '../../state/catalog';
 
 /** Beyond this the grid stops being readable; the category filter narrows it down. */
 const MAX_ENTITIES = 60;
 const ALL = '__all__';
 
-function cellText(outcome: TimeToDefeat): string {
-  if (outcome.kind === 'defeats') return formatTime(outcome.time);
-  return outcome.kind === 'cannot-damage' ? 'No dmg' : '—';
+interface DuelMatrixProps {
+  channels: readonly Channel[];
+  rows: readonly Row[];
+  genre: GenreProfile;
+  onOpen: (attackerKey: string, defenderKey: string) => void;
 }
 
-function describe(outcome: TimeToDefeat, from: string, to: string): string {
-  if (outcome.kind === 'defeats') return `${from} defeats ${to} in ${formatTime(outcome.time)}`;
-  if (outcome.kind === 'cannot-damage') return `${from} cannot damage ${to}`;
-  return `${to} has no hp`;
+function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string {
+  if (metric === 'hits') {
+    return result.forwardHits.kind === 'defeats' ? String(result.forwardHits.hits) : formatHits(result.forwardHits, genre);
+  }
+  const value = metricValue(result, metric) ?? 0;
+  return metric === 'trade' ? formatSigned(value) : String(value);
 }
 
-function tooltip(duel: Duel, attacker: Entity, defender: Entity): string {
-  const winner =
-    duel.winner === 'attacker'
-      ? `${attacker.name} wins`
-      : duel.winner === 'defender'
-        ? `${defender.name} wins`
-        : duel.winner === 'draw'
-          ? 'Draw'
-          : 'Nobody can win';
-  return `${describe(duel.attack, attacker.name, defender.name)}. ${describe(duel.counter, defender.name, attacker.name)}. ${winner}.`;
-}
-
-export function DuelMatrix({ channels, entities }: { channels: readonly Channel[]; entities: readonly Entity[] }) {
-  const categories = useMemo(
-    () => [...new Set(entities.flatMap((entity) => (entity.category ? [entity.category] : [])))],
-    [entities],
-  );
+export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
+  const [metric, setMetric] = useState<Metric>(genre.primary);
   const [category, setCategory] = useState(ALL);
-
-  const fighters = useMemo(
-    () => entities.filter((entity) => entity.hp !== undefined && (category === ALL || entity.category === category)),
-    [entities, category],
+  const categories = useMemo(
+    () => [...new Set(rows.flatMap(({ entity }) => (entity.category ? [entity.category] : [])))],
+    [rows],
   );
-  const shown = useMemo(() => fighters.slice(0, MAX_ENTITIES), [fighters]);
-  const withoutHp = entities.filter((entity) => entity.hp === undefined).length;
 
-  const grid = useMemo(() => duelMatrix(shown, channels), [shown, channels]);
+  const shown = useMemo(
+    () => rows.filter(({ entity }) => category === ALL || entity.category === category).slice(0, MAX_ENTITIES),
+    [rows, category],
+  );
+  const total = rows.filter(({ entity }) => category === ALL || entity.category === category).length;
+  const grid = useMemo(() => matchupMatrix(shown.map((row) => row.entity), channels), [shown, channels]);
 
   const records = grid.map((row) => {
-    const opponents = row.filter((duel) => duel.attackerId !== duel.defenderId);
+    const opponents = row.filter((result) => result.attackerId !== result.defenderId);
     return {
-      wins: opponents.filter((duel) => duel.winner === 'attacker').length,
-      losses: opponents.filter((duel) => duel.winner === 'defender').length,
+      wins: opponents.filter((result) => winnerBy(result, metric) === 'attacker').length,
+      losses: opponents.filter((result) => winnerBy(result, metric) === 'defender').length,
     };
   });
 
   const walls = shown
     .map((defender, column) => ({
       defender,
-      immuneTo: shown.filter((_attacker, row) => row !== column && grid[row]?.[column]?.attack.kind === 'cannot-damage'),
+      immuneTo: shown.flatMap((attacker, rowIndex) => {
+        const result = grid[rowIndex]?.[column];
+        if (rowIndex === column || !result || result.forward.attack === 0 || result.forward.damage > 0) return [];
+        return [{ attacker, reason: wallReason(result.forward, channels) }];
+      }),
     }))
     .filter(({ immuneTo }) => immuneTo.length > 0);
 
-  if (channels.length === 0 || fighters.length < 2) {
+  if (rows.length < 2) {
     return (
       <div className="tab-body">
-        <p className="empty">
-          {channels.length === 0
-            ? 'Duels need at least one atk: column in your CSV.'
-            : 'Duels need at least two entities with hp.'}
-        </p>
+        <p className="empty">Duels need at least two entities.</p>
       </div>
     );
   }
 
+  const ranks = metric !== 'blocked';
+
   return (
     <div className="tab-body">
       <div className="toolbar">
+        <label className="field">
+          <span>Compare by</span>
+          <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
+            {METRICS.map((option) => (
+              <option key={option} value={option}>
+                {metricName(option, genre)}
+                {option === genre.primary ? ` (${genre.name} default)` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
         {categories.length > 1 && (
           <label className="field">
             <span>Category</span>
@@ -88,19 +96,18 @@ export function DuelMatrix({ channels, entities }: { channels: readonly Channel[
             </select>
           </label>
         )}
-        <ul className="legend" aria-label="Legend">
-          <li><span className="swatch win" /> Row wins</li>
-          <li><span className="swatch loss" /> Row loses</li>
-          <li><span className="swatch draw" /> Draw or nobody wins</li>
-        </ul>
+        {ranks && (
+          <ul className="legend" aria-label="Legend">
+            <li><span className="swatch win" /> Row wins</li>
+            <li><span className="swatch loss" /> Row loses</li>
+            <li><span className="swatch draw" /> Draw or no winner</li>
+          </ul>
+        )}
       </div>
 
       <p className="muted small intro">
-        Each cell is the time the row entity needs to defeat the column entity, in the unit of your <code>rate</code>{' '}
-        column (seconds or turns). Both attack at once: the faster one wins. Hover a cell for the full duel.
-        {withoutHp > 0 && ` ${plural(withoutHp, 'entity', 'entities')} without hp ${withoutHp === 1 ? 'is' : 'are'} left out.`}
-        {fighters.length > MAX_ENTITIES &&
-          ` Showing the first ${MAX_ENTITIES} of ${fighters.length}; filter by category to see the rest.`}
+        {metricHint(metric, genre)} Click a cell to open the duel in Versus, step by step.
+        {total > MAX_ENTITIES && ` Showing the first ${MAX_ENTITIES} of ${total}; filter by category to see the rest.`}
       </p>
 
       <div className="table-scroll">
@@ -110,54 +117,66 @@ export function DuelMatrix({ channels, entities }: { channels: readonly Channel[
               <th scope="col" className="corner">
                 Attacker ↓ / Defender →
               </th>
-              {shown.map((entity) => (
-                <th key={entity.id} scope="col" className="defender">
+              {shown.map(({ key, entity }) => (
+                <th key={key} scope="col" className="defender">
                   <span>{entity.name}</span>
                 </th>
               ))}
-              <th scope="col" className="record">W–L</th>
+              {ranks && <th scope="col" className="record">W–L</th>}
             </tr>
           </thead>
           <tbody>
-            {grid.map((row, rowIndex) => {
-              const attacker = shown[rowIndex] as Entity;
+            {grid.map((resultRow, rowIndex) => {
+              const attacker = shown[rowIndex] as Row;
               const record = records[rowIndex] ?? { wins: 0, losses: 0 };
               return (
-                <tr key={attacker.id}>
-                  <th scope="row" className="attacker">{attacker.name}</th>
-                  {row.map((duel, columnIndex) => {
-                    const defender = shown[columnIndex] as Entity;
-                    if (duel.attackerId === duel.defenderId) {
-                      return <td key={defender.id} className="cell self" aria-label="Same entity" />;
-                    }
-                    const tone =
-                      duel.winner === 'attacker' ? 'win' : duel.winner === 'defender' ? 'loss' : 'draw';
-                    const text = tooltip(duel, attacker, defender);
+                <tr key={attacker.key}>
+                  <th scope="row" className="attacker">{attacker.entity.name}</th>
+                  {resultRow.map((result, columnIndex) => {
+                    const defender = shown[columnIndex] as Row;
+                    if (rowIndex === columnIndex) return <td key={defender.key} className="cell self" aria-label="Same entity" />;
+                    const winner = winnerBy(result, metric);
+                    const tone = !ranks ? 'neutral' : winner === 'attacker' ? 'win' : winner === 'defender' ? 'loss' : 'draw';
+                    const margin = hitsMargin(result);
+                    const close = metric === 'hits' && margin !== undefined && Math.abs(margin) === 1;
+                    const text = cellText(result, metric, genre);
                     return (
-                      <td key={defender.id} className={`cell ${tone}`} title={text} aria-label={text}>
-                        {cellText(duel.attack)}
+                      <td key={defender.key} className={`cell ${tone}${close ? ' close' : ''}`}>
+                        <button
+                          type="button"
+                          className="cell-link"
+                          onClick={() => onOpen(attacker.key, defender.key)}
+                          aria-label={`${attacker.entity.name} against ${defender.entity.name}: ${text}. Open in Versus`}
+                          title={close ? 'Close fight' : undefined}
+                        >
+                          {text}
+                        </button>
                       </td>
                     );
                   })}
-                  <td className="record">
-                    {record.wins}–{record.losses}
-                  </td>
+                  {ranks && (
+                    <td className="record">
+                      {record.wins}–{record.losses}
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      {metric === 'hits' && <p className="muted small legend-note">Cells with a dotted border are close fights: the winner needs just one {genre.hit} less.</p>}
 
       <section className="insight" aria-labelledby="walls-title">
         <h3 id="walls-title">Walls</h3>
         {walls.length === 0 ? (
-          <p className="muted">Every entity can be damaged by every other one.</p>
+          <p className="muted">Every attacker can damage every other entity.</p>
         ) : (
           <ul className="wall-list">
             {walls.map(({ defender, immuneTo }) => (
-              <li key={defender.id}>
-                <strong>{defender.name}</strong> cannot be damaged by {immuneTo.map((entity) => entity.name).join(', ')}.
+              <li key={defender.key}>
+                <strong>{defender.entity.name}</strong> takes 0 damage from {plural(immuneTo.length, 'attacker')}:{' '}
+                {immuneTo.map(({ attacker, reason }) => `${attacker.entity.name} (${reason})`).join('; ')}.
               </li>
             ))}
           </ul>

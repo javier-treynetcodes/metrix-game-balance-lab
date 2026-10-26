@@ -39,6 +39,9 @@ npm run check       # everything above, as run in CI
 ## Engine rules
 
 - Domain types live in `packages/core/src/types.ts`; the engine has no side effects.
+- Every game value is a whole number and damage only uses additions and subtractions (`attack − defense`, never below 0). No percentages, ratios or multipliers.
+- Entity rules live in `validateEntity`, shared by the CSV import and the in-app editor so both always accept the same data.
+- `exportCsv` must round-trip: importing an exported file gives the same catalog (a test enforces it).
 - Every function in `core` has tests, and coverage below 100% fails the build.
 - Any change to a formula adds or updates a fixture in `packages/core/fixtures`.
 - The CSV template (`packages/core/src/csv/template.ts`) must always import without issues; a test enforces it.

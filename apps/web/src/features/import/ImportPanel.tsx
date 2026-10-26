@@ -10,11 +10,13 @@ interface ImportPanelProps {
   onImported: (catalog: Catalog) => void;
   /** Shown when a catalog is already loaded, to go back without importing. */
   onCancel?: () => void;
+  /** A catalog saved by an older version of Métrix was discarded. */
+  legacyNotice?: boolean;
 }
 
 type Failure = Exclude<ImportOutcome, { kind: 'imported' }>;
 
-export function ImportPanel({ onImported, onCancel }: ImportPanelProps) {
+export function ImportPanel({ onImported, onCancel, legacyNotice = false }: ImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -78,6 +80,13 @@ export function ImportPanel({ onImported, onCancel }: ImportPanelProps) {
           </button>
         )}
       </div>
+
+      {legacyNotice && (
+        <p className="legacy-notice">
+          Métrix now uses whole numbers, two damage channels and hybrid attacks. Your previous catalog was saved in the old
+          format: import your file again (or start from the new template) to keep working.
+        </p>
+      )}
 
       <div
         className={`dropzone${dragging ? ' is-dragging' : ''}`}

@@ -1,46 +1,44 @@
-/** How a channel's defense reduces incoming attack. */
-export type Mitigation = 'percent' | 'subtractive' | 'ratio' | 'none';
-
-/** A damage channel: attack on channel N is only countered by defense on channel N. */
+/**
+ * A damage channel (for example physical or magic). Métrix works with exactly two.
+ * An attack on a channel is only reduced by defense on that same channel.
+ */
 export interface Channel {
+  /** Name used in the CSV columns (`atk:<key>`, `def:<key>`). */
   key: string;
+  /** Display name chosen by the user. */
   label: string;
-  mitigation: Mitigation;
-  /** Damage floor for `subtractive` mitigation. Defaults to 0. */
-  minDamage?: number;
 }
 
-/** A balanceable catalog item: card, champion, unit, weapon, enemy… */
+/** What kind of damage an entity deals. Every entity deals exactly one kind, or none. */
+export type AttackType = 'none' | 'channel' | 'hybrid';
+
+/**
+ * A balanceable catalog item: card, champion, unit, weapon, enemy…
+ * Every game value is a whole number.
+ */
 export interface Entity {
   id: string;
   name: string;
   category?: string;
   cost?: number;
   hp?: number;
-  /** Attacks per second or per turn. Defaults to 1. */
-  rate: number;
-  /** Attack per channel key. */
+  /** Single-channel attack: at most one channel holds a value above 0. */
   atk: Record<string, number>;
-  /** Defense per channel key. */
+  /**
+   * Hybrid attack: one value per channel, both dealt on every hit.
+   * Present only for hybrid attackers, which deal no single-channel attack.
+   */
+  hybridAtk?: Record<string, number>;
+  /** Base defense per channel: reduces every attack on its channel. */
   def: Record<string, number>;
+  /** Armor against hybrid attacks only, added to the base defense of its channel. */
+  hybridDef: Record<string, number>;
   tags: Record<string, string>;
-  /** Extra numeric columns. */
+  /** Extra whole-number columns. */
   stats: Record<string, number>;
+  /** Cells of columns Métrix does not use, by column position, kept as written for export. */
+  extra: Record<string, string>;
 }
 
-/** Damage multipliers between values of one tag (types, classes, elements). */
-export interface InteractionMatrix {
-  tagKey: string;
-  /** attacker tag value → defender tag value → multiplier. Missing pairs count as 1. */
-  multipliers: Record<string, Record<string, number>>;
-}
-
-export interface Project {
-  name: string;
-  genre?: string;
-  channels: Channel[];
-  entities: Entity[];
-  interactions?: InteractionMatrix;
-  /** Version label used to compare patches. */
-  version: string;
-}
+/** Game genre: decides which measure ranks duels and how results are explained. */
+export type Genre = 'card' | 'shooter' | 'rpg' | 'moba' | 'board' | 'other';

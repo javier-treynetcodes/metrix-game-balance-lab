@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectDelimiter, parseCsv, parseNumber } from '../src';
+import { detectDelimiter, parseCsv, parseInteger } from '../src';
 
 describe('detectDelimiter', () => {
   it('detects comma, semicolon and tab from the header', () => {
@@ -74,21 +74,19 @@ describe('parseCsv', () => {
   });
 });
 
-describe('parseNumber', () => {
-  it('parses numbers and returns undefined for empty cells', () => {
-    expect(parseNumber(' 42 ', false)).toBe(42);
-    expect(parseNumber('-1.5e2', false)).toBe(-150);
-    expect(parseNumber('.5', false)).toBe(0.5);
-    expect(parseNumber('', false)).toBeUndefined();
+describe('parseInteger', () => {
+  it('parses whole numbers and returns undefined for empty cells', () => {
+    expect(parseInteger(' 42 ')).toBe(42);
+    expect(parseInteger('+7')).toBe(7);
+    expect(parseInteger('-3')).toBe(-3);
+    expect(parseInteger('')).toBeUndefined();
   });
 
-  it('rejects text and partial numbers', () => {
-    expect(parseNumber('abc', false)).toBeNaN();
-    expect(parseNumber('12px', false)).toBeNaN();
-    expect(parseNumber('0,65', false)).toBeNaN();
-  });
-
-  it('accepts a decimal comma when enabled', () => {
-    expect(parseNumber('0,65', true)).toBe(0.65);
+  it('rejects decimals, text and numbers too large to be exact', () => {
+    expect(parseInteger('0.5')).toBeNaN();
+    expect(parseInteger('0,65')).toBeNaN();
+    expect(parseInteger('12px')).toBeNaN();
+    expect(parseInteger('1e3')).toBeNaN();
+    expect(parseInteger('99999999999999999999')).toBeNaN();
   });
 });

@@ -1,3 +1,7 @@
+/**
+ * @file Catalog model of the web app: rows, change tracking and browser persistence.
+ */
+
 import { labelFor, type Channel, type CsvLayout, type Entity, type Genre, type ImportIssue } from '@metrix/core';
 
 /** An entity with a stable key, so edits can be tracked even when its id changes. */
@@ -27,6 +31,11 @@ export interface Catalog {
   nextKey: number;
 }
 
+/**
+ * Builds a fresh catalog from an import. Each entity gets a stable row key (`r0`, `r1`...) so
+ * changes are tracked even if the user edits the id, and `original` keeps the imported state
+ * for highlighting changes and "Revert all".
+ */
 export function createCatalog(
   source: string,
   layout: CsvLayout,
@@ -98,6 +107,7 @@ export function countChanges(catalog: Catalog): number {
 const STORAGE_KEY = 'metrix:catalog:v2';
 const LEGACY_KEY = 'metrix:catalog:v1';
 
+/** What `loadSavedCatalog` found in this browser. */
 export interface SavedState {
   catalog: Catalog | null;
   /** A catalog saved by an older version was found and discarded: it must be imported again. */
@@ -124,6 +134,10 @@ export function loadSavedCatalog(): SavedState {
   }
 }
 
+/**
+ * Saves the catalog in this browser, or removes it when `null`. Storage may be full or blocked
+ * (private mode); then the session keeps working and the catalog is just not restored on reload.
+ */
 export function saveCatalog(catalog: Catalog | null): void {
   try {
     if (catalog) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(catalog));

@@ -1,3 +1,7 @@
+/**
+ * @file CSV export that keeps the source file's layout and round-trips through the importer.
+ */
+
 import type { Channel, Entity } from '../types';
 import { classifyHeader, HYBRID, headerFor } from './columns';
 import { labelFor, type CsvLayout } from './importEntities';
@@ -22,7 +26,7 @@ function preferredName(channel: Channel): string {
 }
 
 /**
- * Column name for a channel. A renamed channel uses its new display name (`Fire` → `atk:fire`);
+ * Column name for a channel. A renamed channel uses its new display name (`Fire` -> `atk:fire`);
  * it keeps its original key when that name would clash with the other channel.
  */
 export function channelColumnName(channel: Channel, channels: readonly Channel[]): string {

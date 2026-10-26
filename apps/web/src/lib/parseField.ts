@@ -1,5 +1,10 @@
+/**
+ * @file Parsing of numbers typed in the editor.
+ */
+
 import { parseInteger } from '@metrix/core';
 
+/** Result of reading a typed value: the number (or undefined for an empty cell), or the error to show. */
 export type Parsed = { ok: true; value: number | undefined } | { ok: false; error: string };
 
 /** Reads a number typed in the editor: whole numbers only, and 0 or more unless negatives are allowed. */

@@ -1,4 +1,8 @@
 /**
+ * @file Official CSV template offered for download in the app.
+ */
+
+/**
  * Official CSV template: header plus invented, genre-neutral example rows, one per kind of attacker.
  * Two damage channels, 1 and 2, plus hybrid columns. Users rename the channels after their game
  * (e.g. `atk:physical`). Every value is a whole number. Offered in the web app to download or copy.

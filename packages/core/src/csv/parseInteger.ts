@@ -1,3 +1,7 @@
+/**
+ * @file Strict whole-number parsing for CSV cells and typed values.
+ */
+
 const INTEGER_PATTERN = /^[+-]?\d+$/;
 
 /**

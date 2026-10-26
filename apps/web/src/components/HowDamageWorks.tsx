@@ -1,3 +1,7 @@
+/**
+ * @file Collapsible explanation of the damage rules with a worked example.
+ */
+
 import type { Channel } from '@metrix/core';
 import { StatCode } from './StatCode';
 

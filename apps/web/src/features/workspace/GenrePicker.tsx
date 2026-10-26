@@ -1,3 +1,7 @@
+/**
+ * @file Genre picker shown right after the first import.
+ */
+
 import type { Genre } from '@metrix/core';
 import { GENRES, metricNameFor } from './genreText';
 

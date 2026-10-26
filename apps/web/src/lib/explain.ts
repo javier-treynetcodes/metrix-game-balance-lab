@@ -1,3 +1,7 @@
+/**
+ * @file Plain-language explanations of damage results, used by Versus and the walls list.
+ */
+
 import type { Channel, DamageBreakdown } from '@metrix/core';
 import { statCode } from './codes';
 

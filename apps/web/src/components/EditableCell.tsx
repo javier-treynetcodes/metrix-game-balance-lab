@@ -1,3 +1,7 @@
+/**
+ * @file Spreadsheet-like table cell: click to edit, Enter/Tab to save and move, Esc to cancel.
+ */
+
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 interface EditableCellProps {

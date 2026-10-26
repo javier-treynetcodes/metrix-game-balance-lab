@@ -1,12 +1,20 @@
+/**
+ * @file Three-step quick tour shown with the example data.
+ */
+
 import { useState } from 'react';
 import { readFlag, writeFlag } from '../../lib/storage';
 
 const DISMISSED = 'metrix:guide-dismissed';
 
 interface GuideProps {
+  /** True once the catalog has at least one change (step 1 done). */
   edited: boolean;
+  /** True once the Duels tab was opened (step 2 done). */
   visitedDuels: boolean;
+  /** True once the Versus tab was opened (step 3 done). */
   visitedVersus: boolean;
+  /** Opens the tab a step talks about. */
   onGo: (tab: 'catalog' | 'duels' | 'versus') => void;
 }
 

@@ -1,3 +1,8 @@
+/**
+ * @file Inline SVG icons and the logo. Inline so they inherit color and need no extra requests.
+ */
+
+/** Attack icon, drawn with `currentColor` so it takes the color of the text around it. */
 export function SwordIcon() {
   return (
     <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -10,6 +15,7 @@ export function SwordIcon() {
   );
 }
 
+/** Heart used on every sponsor call to action. */
 export function HeartIcon() {
   return (
     <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -21,6 +27,7 @@ export function HeartIcon() {
   );
 }
 
+/** GitHub mark, for the links to the repository and the author's profile. */
 export function GitHubIcon() {
   return (
     <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -32,6 +39,10 @@ export function GitHubIcon() {
   );
 }
 
+/**
+ * Métrix logo: a tile with the brand gradient (cyan to violet) and a cut-out M.
+ * Keep it in sync with `public/favicon.svg` and `docs/logo.svg`.
+ */
 export function LogoMark() {
   return (
     <svg className="logo-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
@@ -54,6 +65,7 @@ export function LogoMark() {
   );
 }
 
+/** Defense icon, drawn with `currentColor` so it takes the color of the text around it. */
 export function ShieldIcon() {
   return (
     <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">

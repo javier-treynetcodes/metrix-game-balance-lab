@@ -1,3 +1,7 @@
+/**
+ * @file Duels tab: matrix of every matchup, records and walls.
+ */
+
 import { useMemo, useState } from 'react';
 import { matchupMatrix, metricValue, METRICS, winnerBy, hitsMargin, type Channel, type Matchup, type Metric } from '@metrix/core';
 import { plural } from '../../lib/format';
@@ -11,9 +15,13 @@ const MAX_ENTITIES = 60;
 const ALL = '__all__';
 
 interface DuelMatrixProps {
+  /** The two damage channels of the catalog. */
   channels: readonly Channel[];
+  /** Catalog rows, in catalog order. */
   rows: readonly Row[];
+  /** Genre profile: default metric and the word for one attack. */
   genre: GenreProfile;
+  /** Opens a duel in Versus, given the row keys of the attacker (row) and the defender (column). */
   onOpen: (attackerKey: string, defenderKey: string) => void;
 }
 
@@ -39,6 +47,15 @@ function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string 
   return metric === 'trade' ? formatSigned(value) : String(value);
 }
 
+/**
+ * Every entity against every other one. Rows attack, columns defend.
+ *
+ * - The cell value and the winner come from the selected metric (the genre's by default).
+ * - Color strength follows the margin of victory; marks (up, down, equal) repeat the result
+ *   for readers who cannot rely on color.
+ * - Clicking a cell opens that duel in Versus. "Walls" lists attacks that deal 0 damage.
+ * - Large catalogs are capped at `MAX_ENTITIES` per view; the category filter shows the rest.
+ */
 export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
   const [metric, setMetric] = useState<Metric>(genre.primary);
   const [category, setCategory] = useState(ALL);
@@ -64,7 +81,7 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
     };
   });
 
-  // Display order: input order, or best win–loss record first. Rows and columns share it.
+  // Display order: input order, or best win-loss record first. Rows and columns share it.
   const order = shown.map((_row, index) => index);
   if (sortByRecord) {
     order.sort((a, b) => {

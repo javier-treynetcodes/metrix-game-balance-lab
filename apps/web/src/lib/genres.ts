@@ -1,5 +1,13 @@
+/**
+ * @file Genre profiles: ranking metric, vocabulary and reading guide per genre.
+ */
+
 import type { Genre, Metric } from '@metrix/core';
 
+/**
+ * How Métrix presents results for one genre. The genre never changes data or formulas:
+ * only which metric ranks duels, the word used for one attack and the reading guide.
+ */
 export interface GenreProfile {
   id: Genre;
   name: string;
@@ -7,12 +15,13 @@ export interface GenreProfile {
   pitch: string;
   /** Measure that ranks duels by default. */
   primary: Metric;
-  /** Word for one attack in this genre: hit, shot, attack… */
+  /** Word for one attack in this genre: hit, shot, attack... */
   hit: string;
   /** How to read the duel matrix for this genre. */
   howToRead: string;
 }
 
+/** Supported genres, in the order of the picker. Adding one only needs a new entry here. */
 export const GENRES: readonly GenreProfile[] = [
   {
     id: 'card',
@@ -70,6 +79,7 @@ export const GENRES: readonly GenreProfile[] = [
   },
 ];
 
+/** Profile of a genre, falling back to "Other" when none was picked yet. */
 export function genreProfile(genre: Genre | undefined): GenreProfile {
   return GENRES.find((profile) => profile.id === genre) ?? (GENRES.at(-1) as GenreProfile);
 }

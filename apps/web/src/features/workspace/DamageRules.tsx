@@ -1,3 +1,7 @@
+/**
+ * @file Damage rules tab: rules, channel names and exposure warnings.
+ */
+
 import { useState } from 'react';
 import type { Channel, Entity } from '@metrix/core';
 import { ChannelDot } from '../../components/AttackBadge';
@@ -7,8 +11,11 @@ import { plural } from '../../lib/format';
 import { withKey } from '../../lib/record';
 
 interface DamageRulesProps {
+  /** The two damage channels of the catalog. */
   channels: readonly Channel[];
+  /** Every entity, to find who attacks on each channel and who has no defense there. */
   entities: readonly Entity[];
+  /** Renames a channel; the new name is used in the app and in exported column names. */
   onRename: (key: string, label: string) => void;
 }
 
@@ -29,6 +36,10 @@ function NameList({ entities }: { entities: readonly Entity[] }) {
   return <p className="name-list">{entities.map((entity) => entity.name).join(', ')}</p>;
 }
 
+/**
+ * "Damage rules" tab: how damage works, the channel names and, per channel, which entities
+ * some attack in the catalog hits in full because they have no defense there.
+ */
 export function DamageRules({ channels, entities, onRename }: DamageRulesProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const withHybridArmor = entities.filter((entity) => Object.values(entity.hybridDef).some((value) => value > 0));

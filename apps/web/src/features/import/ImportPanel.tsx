@@ -1,3 +1,7 @@
+/**
+ * @file Import screen: file input, template actions, example data and the error report.
+ */
+
 import { useRef, useState, type DragEvent } from 'react';
 import { CSV_TEMPLATE, CSV_TEMPLATE_FILE_NAME } from '@metrix/core';
 import { copyText, downloadText } from '../../lib/download';
@@ -16,6 +20,11 @@ interface ImportPanelProps {
 
 type Failure = Exclude<ImportOutcome, { kind: 'imported' }>;
 
+/**
+ * Entry point for data: drag and drop, file picker, template download/copy and example data.
+ * A file that fails to import shows every problem at once and loads nothing; a valid one
+ * is handed to `onImported`.
+ */
 export function ImportPanel({ onImported, onCancel, legacyNotice = false }: ImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);

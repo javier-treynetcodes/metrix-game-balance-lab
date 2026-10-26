@@ -1,6 +1,11 @@
+/**
+ * @file Names, explanations and formatting of the four comparison metrics.
+ */
+
 import type { HitsToDefeat, Metric } from '@metrix/core';
 import type { GenreProfile } from './genres';
 
+/** Display name of a metric, using the genre's word for one attack ("Shots to defeat"). */
 export function metricName(metric: Metric, genre: GenreProfile): string {
   switch (metric) {
     case 'hits':
@@ -14,6 +19,7 @@ export function metricName(metric: Metric, genre: GenreProfile): string {
   }
 }
 
+/** One-sentence explanation of a metric, shown above the duel matrix. */
 export function metricHint(metric: Metric, genre: GenreProfile): string {
   switch (metric) {
     case 'hits':
@@ -27,15 +33,18 @@ export function metricHint(metric: Metric, genre: GenreProfile): string {
   }
 }
 
+/** "15 hits", "1 shot", "Can't damage" or "No hp". */
 export function formatHits(result: HitsToDefeat, genre: GenreProfile): string {
   if (result.kind === 'defeats') return `${result.hits} ${result.hits === 1 ? genre.hit : `${genre.hit}s`}`;
   return result.kind === 'cannot-damage' ? "Can't damage" : 'No hp';
 }
 
+/** Signed number for trades: "+12", "-7" (with a true minus sign) or "0". */
 export function formatSigned(value: number): string {
   return value > 0 ? `+${value}` : value < 0 ? `−${Math.abs(value)}` : '0';
 }
 
+/** Same text with its first letter in upper case. */
 export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

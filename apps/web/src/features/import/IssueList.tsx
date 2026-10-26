@@ -1,3 +1,7 @@
+/**
+ * @file List of import problems, errors first, each with its column and lines.
+ */
+
 import type { ImportIssue } from '@metrix/core';
 
 const MAX_LINES_SHOWN = 12;

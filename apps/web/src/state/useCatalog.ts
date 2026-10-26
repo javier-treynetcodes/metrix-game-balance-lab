@@ -1,3 +1,7 @@
+/**
+ * @file React hook that holds the catalog with undo/redo and every edit action.
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { labelFor, type Entity, type Genre } from '@metrix/core';
 import { loadSavedCatalog, saveCatalog, type Catalog, type Row } from './catalog';
@@ -164,5 +168,6 @@ export function useCatalog() {
   };
 }
 
+/** Edit actions the workspace passes down to its tabs. */
 export type CatalogActions = Omit<ReturnType<typeof useCatalog>, 'catalog' | 'discardedLegacy' | 'replace'>;
 

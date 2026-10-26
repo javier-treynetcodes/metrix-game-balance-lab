@@ -1,3 +1,7 @@
+/**
+ * @file Workspace: header actions, tabs and everything that spans several tabs.
+ */
+
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { exportCsv, type Genre } from '@metrix/core';
 import { IssueList } from '../import/IssueList';
@@ -30,9 +34,13 @@ const TABS: readonly { id: TabId; label: string }[] = [
 const SPONSOR_NUDGE_DISMISSED = 'metrix:sponsor-nudge-dismissed';
 
 interface WorkspaceProps {
+  /** The loaded catalog. */
   catalog: Catalog;
+  /** Edit actions from `useCatalog`. */
   actions: CatalogActions;
+  /** Goes to the import screen. Called only after the user confirmed losing unexported changes. */
   onImportAnother: () => void;
+  /** Deletes the catalog from this browser. Called only after the user confirmed it. */
   onClear: () => void;
 }
 
@@ -41,6 +49,14 @@ function exportFileName(source: string): string {
   return `${base || 'catalog'}-metrix-${new Date().toISOString().slice(0, 10)}.csv`;
 }
 
+/**
+ * Everything shown once a catalog is loaded: the genre picker (first time only), the header
+ * with undo/redo, export and the "..." menu, the quick tour and the four tabs.
+ *
+ * It also owns cross-tab concerns: the Versus pair, the deep link in the address bar,
+ * keyboard shortcuts for undo/redo, confirmations before destructive actions and the
+ * post-export message.
+ */
 export function Workspace({ catalog, actions, onImportAnother, onClear }: WorkspaceProps) {
   const [initialRoute] = useState(readRoute);
   const [tab, setTabState] = useState<TabId>(initialRoute.tab);

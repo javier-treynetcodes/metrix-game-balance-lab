@@ -1,3 +1,7 @@
+/**
+ * @file Versus tab: two entities compared step by step, with what-if changes.
+ */
+
 import { useState, type ReactNode } from 'react';
 import {
   hitsMargin,
@@ -20,12 +24,19 @@ import { attackChoiceOf, attackValue, type CatalogSchema } from '../../lib/schem
 import { entityFields, type Row } from '../../state/catalog';
 
 interface VersusProps {
+  /** Catalog rows to pick from. */
   rows: readonly Row[];
+  /** The two damage channels of the catalog. */
   channels: readonly Channel[];
+  /** Columns available in the imported file; decides which steppers are shown. */
   schema: CatalogSchema;
+  /** Genre profile: the metric behind the verdict and the word for one attack. */
   genre: GenreProfile;
+  /** Row keys of side A and side B. Both may point to the same row (mirror match). */
   pair: [string, string];
+  /** Called when the user picks or swaps entities. */
   onPairChange: (pair: [string, string]) => void;
+  /** Saves the what-if drafts, by row key, as one undo step. */
   onApply: (updates: Record<string, Entity>) => void;
 }
 
@@ -33,6 +44,14 @@ function hitsCount(result: HitsToDefeat): number | undefined {
   return result.kind === 'defeats' ? result.hits : undefined;
 }
 
+/**
+ * Head-to-head view of two entities.
+ *
+ * Shows the verdict for the genre's metric, facing stat bars, every subtraction behind each
+ * hit (with bars for blocked and dealt damage), plain-language reasons and all four metrics.
+ * The "Try changes" steppers edit local drafts only; "Apply to catalog" saves them as a
+ * single undo step after checking them with `validateEntity`.
+ */
 export function Versus({ rows, channels, schema, genre, pair, onPairChange, onApply }: VersusProps) {
   const byKey = new Map(rows.map((row) => [row.key, row]));
   const rowA = byKey.get(pair[0]);

@@ -1,3 +1,7 @@
+/**
+ * @file Which fields a catalog has, and helpers to read and change an entity's attack.
+ */
+
 import { classifyHeader, type Channel, type Entity } from '@metrix/core';
 import { statCode } from './codes';
 import type { Catalog } from '../state/catalog';
@@ -17,6 +21,10 @@ export interface CatalogSchema {
 /** Attack kind as offered in a select: no attack, one channel, or hybrid. */
 export type AttackChoice = 'none' | `ch:${string}` | 'hybrid';
 
+/**
+ * Works out which editable fields the catalog has from the headers of the imported file.
+ * Columns kept as text (not analyzed) are excluded because they cannot be edited safely.
+ */
 export function catalogSchema(catalog: Catalog): CatalogSchema {
   const roles = catalog.layout.headers.map((header, index) => ({
     index,
@@ -46,6 +54,7 @@ export function catalogSchema(catalog: Catalog): CatalogSchema {
   };
 }
 
+/** Current kind of attack of an entity, as a select value. */
 export function attackChoiceOf(entity: Entity): AttackChoice {
   if (entity.hybridAtk) return 'hybrid';
   const channel = Object.entries(entity.atk).find(([, value]) => value > 0)?.[0];
@@ -75,10 +84,12 @@ export function withAttackChoice(entity: Entity, choice: AttackChoice, channels:
   return next;
 }
 
+/** Display name of a channel, or its key when the channel is unknown. */
 export function channelLabel(channels: readonly Channel[], key: string): string {
   return channels.find((channel) => channel.key === key)?.label ?? key;
 }
 
+/** Short label for a kind of attack: "ATK 1", "Hybrid" or "No attack". */
 export function attackChoiceLabel(choice: AttackChoice, channels: readonly Channel[]): string {
   if (choice === 'none') return 'No attack';
   if (choice === 'hybrid') return 'Hybrid';

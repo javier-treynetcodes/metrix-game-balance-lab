@@ -1,6 +1,11 @@
+/**
+ * @file Site footer with the sponsor card and project links.
+ */
+
 import { GitHubIcon, HeartIcon } from '../../components/Icons';
 import { LINKS } from '../../lib/links';
 
+/** Page footer: the sponsor card, the privacy promise and the author and source links. */
 export function AppFooter() {
   return (
     <footer className="app-footer">

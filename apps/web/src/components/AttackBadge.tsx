@@ -1,3 +1,7 @@
+/**
+ * @file Channel colors and the colored chip that names an entity's kind of attack.
+ */
+
 import { attackType, type Channel, type Entity } from '@metrix/core';
 import { attackChoiceLabel, attackChoiceOf } from '../lib/schema';
 import { SwordIcon } from './Icons';
@@ -7,6 +11,7 @@ export function channelTone(channels: readonly Channel[], key: string): 'one' | 
   return channels.findIndex((channel) => channel.key === key) === 1 ? 'two' : 'one';
 }
 
+/** Small colored dot that identifies a channel in headers and labels. */
 export function ChannelDot({ channels, channelKey }: { channels: readonly Channel[]; channelKey: string }) {
   return <span className={`dot tone-${channelTone(channels, channelKey)}`} aria-hidden="true" />;
 }

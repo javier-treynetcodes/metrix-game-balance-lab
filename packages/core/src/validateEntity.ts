@@ -1,5 +1,10 @@
+/**
+ * @file Rules every entity must follow, shared by the CSV import and the in-app editor.
+ */
+
 import type { Channel, Entity } from './types';
 
+/** Rule an entity can break. See `ENTITY_MESSAGES` for the text shown to the user. */
 export type EntityProblemCode =
   | 'missing-id'
   | 'invalid-id'
@@ -9,6 +14,7 @@ export type EntityProblemCode =
   | 'mixed-attack'
   | 'incomplete-hybrid';
 
+/** One broken rule, with the field it concerns so the editor can point at the right cell. */
 export interface EntityProblem {
   code: EntityProblemCode;
   /** Field the problem is about: id, name, cost, hp, atk, hybridAtk, def or hybridDef. */
@@ -16,6 +22,10 @@ export interface EntityProblem {
   message: string;
 }
 
+/**
+ * User-facing message for each rule, written as an instruction: what to change and how.
+ * Shared by the import report and the editor so the same mistake reads the same everywhere.
+ */
 export const ENTITY_MESSAGES: Record<EntityProblemCode, string> = {
   'missing-id': 'Every entity needs a unique id.',
   'invalid-id': 'Ids cannot contain spaces. Use hyphens instead, e.g. "heavy-unit".',

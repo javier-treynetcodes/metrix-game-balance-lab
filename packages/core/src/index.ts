@@ -1,3 +1,12 @@
+/**
+ * @file Public API of the Métrix engine (`@metrix/core`).
+ *
+ * The engine is pure TypeScript with no DOM access and no side effects, so it can run in the
+ * browser, in a Web Worker, in Node or in tests. Every function here is covered by tests and
+ * the build fails below 100% coverage. Every game value is a whole number and damage only
+ * uses additions and subtractions.
+ */
+
 export type { AttackType, Channel, Entity, Genre } from './types';
 export {
   attackType,

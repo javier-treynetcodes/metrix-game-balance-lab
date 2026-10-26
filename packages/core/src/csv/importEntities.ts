@@ -1,9 +1,17 @@
+/**
+ * @file CSV importer: turns a file into channels and entities, or a complete list of problems.
+ */
+
 import type { Channel, Entity } from '../types';
 import { ENTITY_MESSAGES, validateEntity, type EntityProblemCode } from '../validateEntity';
 import { classifyHeader, type ColumnRole } from './columns';
 import { parseCsv, type CsvSyntaxError, type Delimiter } from './parseCsv';
 import { parseInteger } from './parseInteger';
 
+/**
+ * Every problem the importer can report. Errors block the import; warnings only inform.
+ * The entity-level codes come from `validateEntity`, so the import and the editor share them.
+ */
 export type ImportIssueCode =
   | 'empty-file'
   | 'unclosed-quote'
@@ -26,6 +34,10 @@ export type ImportIssueCode =
   | 'missing-cost'
   | 'missing-hp';
 
+/**
+ * One problem found in the file. Issues with the same code and column are merged,
+ * so each one lists every affected line instead of repeating the message.
+ */
 export interface ImportIssue {
   severity: 'error' | 'warning';
   code: ImportIssueCode;
@@ -43,6 +55,10 @@ export interface CsvLayout {
   headers: string[];
 }
 
+/**
+ * Outcome of `importEntities`. When `ok` is false, `channels` and `entities` are empty:
+ * the import is all or nothing so an analysis never runs on a silently incomplete catalog.
+ */
 export interface ImportResult {
   /** True when there are no errors. Warnings do not block the import. */
   ok: boolean;

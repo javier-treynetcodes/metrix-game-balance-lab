@@ -45,3 +45,13 @@ npm run check       # everything above, as run in CI
 - Every function in `core` has tests, and coverage below 100% fails the build.
 - Any change to a formula adds or updates a fixture in `packages/core/fixtures`.
 - The CSV template (`packages/core/src/csv/template.ts`) must always import without issues; a test enforces it.
+
+## Code style
+
+- **English everywhere in the code:** identifiers, comments, commit messages, test names and UI text.
+- **Every file starts with a `@file` comment** that says what the module is for.
+- **Every export is documented** with a JSDoc comment: what it does, why it exists and its edge cases (empty values, 0, missing hp…). Component props document each field.
+- **Comments explain the why, not the what.** Add one wherever a reader would otherwise have to stop and work something out; describe tricky logic step by step.
+- **Plain ASCII in comments** (`->`, `-`, `...`), so they read the same in every editor and are easy to search. UI text may use typographic characters.
+- **Readable over clever:** descriptive names, small functions, no abbreviations except the domain codes ATK, DEF, ARM and HYB.
+

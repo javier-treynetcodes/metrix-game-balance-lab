@@ -1,3 +1,7 @@
+/**
+ * @file Meaning of each CSV header, shared by the importer and the exporter.
+ */
+
 /** What a CSV column means. Shared by the importer and the exporter so both read headers the same way. */
 export type ColumnRole =
   | { kind: 'id' | 'name' | 'category' | 'cost' | 'hp' }

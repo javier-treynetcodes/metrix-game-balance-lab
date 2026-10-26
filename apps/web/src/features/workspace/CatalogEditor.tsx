@@ -1,3 +1,7 @@
+/**
+ * @file Catalog tab: the editable table of entities.
+ */
+
 import { useMemo, useState } from 'react';
 import { validateEntity, type Entity } from '@metrix/core';
 import { channelTone } from '../../components/AttackBadge';
@@ -12,14 +16,28 @@ import { changedFields, type Catalog, type Row } from '../../state/catalog';
 import type { CatalogActions } from '../../state/useCatalog';
 
 interface CatalogEditorProps {
+  /** Catalog to show and edit, including the imported state used to highlight changes. */
   catalog: Catalog;
+  /** Columns available in the imported file; only these can be edited. */
   schema: CatalogSchema;
+  /** Edit actions; each call is one undo step. */
   actions: CatalogActions;
+  /** Opens Versus with the entity of this row key as side A. */
   onCompare: (key: string) => void;
 }
 
 type SortKey = 'name' | 'cost' | 'hp';
 
+/**
+ * Editable catalog table.
+ *
+ * - Columns are grouped by channel (ATK and DEF side by side) and then hybrid (HYB and ARM).
+ *   Only the columns of the imported file are shown: new columns are added through the template.
+ * - Every edit goes through `validateEntity`, the same rules as the import, and becomes one
+ *   undo step. Invalid input stays in the cell with an explanation and is never saved.
+ * - Typing an attack under another ATK or HYB column switches the entity's kind of attack,
+ *   and a notice with Undo says so, because an entity deals only one kind of damage.
+ */
 export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEditorProps) {
   const { channels, rows } = catalog;
   const [query, setQuery] = useState('');

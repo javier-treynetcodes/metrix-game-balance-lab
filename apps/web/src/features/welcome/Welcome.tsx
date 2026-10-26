@@ -1,3 +1,7 @@
+/**
+ * @file Welcome hero shown before the first import.
+ */
+
 import { ShieldIcon, SwordIcon } from '../../components/Icons';
 
 const FEATURES = [
@@ -43,6 +47,7 @@ function FeatureIcon({ name }: { name: (typeof FEATURES)[number]['icon'] }) {
   );
 }
 
+/** First screen before any import: what Métrix does, in a headline and three feature cards. */
 export function Welcome() {
   return (
     <section className="panel welcome" aria-labelledby="welcome-title">

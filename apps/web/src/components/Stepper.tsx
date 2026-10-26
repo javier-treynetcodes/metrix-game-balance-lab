@@ -1,12 +1,21 @@
+/**
+ * @file Whole-number stepper used by the what-if controls in Versus.
+ */
+
 interface StepperProps {
+  /** Visible label, also used to name the buttons for screen readers ("DEF 1 plus 1"). */
   label: string;
+  /** Current whole-number value. */
   value: number;
+  /** Lowest allowed value: the minus button is disabled there. Defaults to 0. */
   min?: number;
+  /** Highlights the stepper when the value differs from the catalog. */
   changed?: boolean;
+  /** Receives the new value, already clamped to `min` and stripped of non-digits. */
   onChange: (value: number) => void;
 }
 
-/** Whole-number input with −1 / +1 buttons, for quick what-if changes. */
+/** Whole-number input with -1 / +1 buttons, for quick what-if changes. */
 export function Stepper({ label, value, min = 0, changed = false, onChange }: StepperProps) {
   return (
     <div className={`stepper${changed ? ' is-changed' : ''}`}>

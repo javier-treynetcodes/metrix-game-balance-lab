@@ -1,6 +1,11 @@
+/**
+ * @file Site header with the logo and project links.
+ */
+
 import { GitHubIcon, HeartIcon, LogoMark } from '../../components/Icons';
 import { LINKS } from '../../lib/links';
 
+/** Page header: logo and name on the left, GitHub and Sponsor links on the right. */
 export function AppHeader() {
   return (
     <header className="app-header">

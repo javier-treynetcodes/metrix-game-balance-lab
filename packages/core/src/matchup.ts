@@ -1,9 +1,14 @@
+/**
+ * @file Head-to-head comparisons: the four metrics, winners and the full matchup matrix.
+ */
+
 import { damageBreakdown, hitsToDefeat, type DamageBreakdown, type HitsToDefeat } from './combat';
 import type { Channel, Entity } from './types';
 
 /** Ways to compare two entities. Every one is a whole number. */
 export type Metric = 'hits' | 'damage' | 'trade' | 'blocked';
 
+/** Every metric, in the order the UI lists them. */
 export const METRICS: readonly Metric[] = ['hits', 'damage', 'trade', 'blocked'];
 
 /** Who comes out ahead. `none` when the metric does not rank (blocked) or nobody can win. */
@@ -13,9 +18,9 @@ export type Winner = 'attacker' | 'defender' | 'draw' | 'none';
 export interface Matchup {
   attackerId: string;
   defenderId: string;
-  /** attacker → defender. */
+  /** attacker -> defender. */
   forward: DamageBreakdown;
-  /** defender → attacker. */
+  /** defender -> attacker. */
   backward: DamageBreakdown;
   forwardHits: HitsToDefeat;
   backwardHits: HitsToDefeat;
@@ -23,6 +28,10 @@ export interface Matchup {
   trade: number;
 }
 
+/**
+ * Computes everything about one pair: the damage breakdown in both directions, the hits each
+ * side needs to defeat the other and the trade. All metrics and winners are read from this.
+ */
 export function matchup(attacker: Entity, defender: Entity, channels: readonly Channel[]): Matchup {
   const forward = damageBreakdown(attacker, defender, channels);
   const backward = damageBreakdown(defender, attacker, channels);

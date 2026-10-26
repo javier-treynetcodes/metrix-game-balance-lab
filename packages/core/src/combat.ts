@@ -1,3 +1,7 @@
+/**
+ * @file Damage of one hit and hits to defeat. Only whole-number subtractions, never below 0.
+ */
+
 import type { AttackType, Channel, Entity } from './types';
 
 /** Kind of damage the entity deals. A hybrid attack wins over stray single-channel values. */
@@ -15,12 +19,16 @@ export interface DamageRow {
   defense: number;
   /** Defender's hybrid armor on the channel; only counts against hybrid attacks, 0 otherwise. */
   hybridDefense: number;
-  /** attack − (defense + hybridDefense), never below 0. */
+  /** attack - (defense + hybridDefense), never below 0. */
   damage: number;
   /** True when nothing reduces the attack: it lands in full. */
   fullDamage: boolean;
 }
 
+/**
+ * Full damage calculation of one hit, ready to be shown step by step.
+ * `rows` holds one subtraction per channel the attack touches; the totals summarize them.
+ */
 export interface DamageBreakdown {
   rows: DamageRow[];
   /** Sum of the attack values. */
@@ -63,7 +71,7 @@ export function damageBreakdown(
   return { rows, attack, blocked: attack - damage, damage };
 }
 
-/** Outcome of `attacker` trying to defeat `defender`, counted in hits (attacks, shots, strikes…). */
+/** Outcome of `attacker` trying to defeat `defender`, counted in hits (attacks, shots, strikes...). */
 export type HitsToDefeat =
   | { kind: 'defeats'; hits: number }
   | { kind: 'cannot-damage' }

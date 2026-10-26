@@ -1,4 +1,8 @@
 /**
+ * @file Domain types of the engine: channels, entities and genres.
+ */
+
+/**
  * A damage channel (for example physical or magic). Métrix works with exactly two.
  * An attack on a channel is only reduced by defense on that same channel.
  */
@@ -13,7 +17,7 @@ export interface Channel {
 export type AttackType = 'none' | 'channel' | 'hybrid';
 
 /**
- * A balanceable catalog item: card, champion, unit, weapon, enemy…
+ * A balanceable catalog item: card, champion, unit, weapon, enemy...
  * Every game value is a whole number.
  */
 export interface Entity {

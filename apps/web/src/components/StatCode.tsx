@@ -1,3 +1,7 @@
+/**
+ * @file Short colored stat codes (ATK 1, DEF 1, ARM 1, HYB 1) used across the app.
+ */
+
 import type { Channel } from '@metrix/core';
 import { channelTone } from './AttackBadge';
 import { statCode, type StatKind } from '../lib/codes';
@@ -11,7 +15,7 @@ interface StatCodeProps {
   short?: boolean;
 }
 
-/** Compact, colored label for a stat: ⚔ ATK 1, 🛡 DEF 1, 🛡 ARM 1, ⚔ HYB 1. */
+/** Compact, colored label for a stat: ATK 1, DEF 1, ARM 1, HYB 1. */
 export function StatCode({ kind, channels, channelKey, short = false }: StatCodeProps) {
   const tone = kind === 'hyb' || kind === 'arm' ? 'hybrid' : channelTone(channels, channelKey);
   const text = statCode(kind, channels, channelKey);

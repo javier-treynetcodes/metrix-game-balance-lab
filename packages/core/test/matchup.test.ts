@@ -59,7 +59,11 @@ describe('metricValue', () => {
   it('reads each metric from the attacker side', () => {
     const armored = entity('armored', { hp: 100, atk: { '1': 10 }, def: { '1': 20 } });
     const result = matchup(strong, armored, channels);
-    // hits 100/30 → 4 · damage 50 − 20 = 30 · trade 30 − 10 = 20 · blocked 20
+    // Expected values, worked out by hand:
+    // - hits: 100 hp / 30 damage per hit, rounded up -> 4 hits
+    // - damage: 50 attack - 20 defense = 30
+    // - trade: 30 dealt - 10 received = 20
+    // - blocked: 20 of the 50 attack
     expect(METRICS.map((metric) => metricValue(result, metric))).toEqual([4, 30, 20, 20]);
     expect(metricValue(matchup(entity('w'), armored, channels), 'hits')).toBeUndefined();
   });

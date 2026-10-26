@@ -1,11 +1,17 @@
+/**
+ * @file Accessible "..." menu for secondary actions.
+ */
+
 import { useEffect, useId, useRef, useState } from 'react';
 
 interface MoreMenuProps {
+  /** Accessible name of the "..." button, e.g. "More actions". */
   label: string;
+  /** Menu entries, in order. `danger` paints destructive actions in red. */
   items: { label: string; onSelect: () => void; danger?: boolean }[];
 }
 
-/** "⋯" button with a small menu: secondary actions out of the way of the main ones. */
+/** ""..." (more)" button with a small menu: secondary actions out of the way of the main ones. */
 export function MoreMenu({ label, items }: MoreMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

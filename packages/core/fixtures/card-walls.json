@@ -1,0 +1,156 @@
+{
+  "name": "card-walls",
+  "description": "Single-channel attackers: subtraction per channel, walls that take 0 damage, full damage without defense and an entity without hp.",
+  "channels": [
+    {
+      "key": "combat",
+      "label": "Combat"
+    },
+    {
+      "key": "spell",
+      "label": "Spell"
+    }
+  ],
+  "entities": [
+    {
+      "id": "archer",
+      "name": "Ash Archer",
+      "atk": {
+        "combat": 3
+      },
+      "def": {
+        "combat": 1
+      },
+      "hybridDef": {},
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 6
+    },
+    {
+      "id": "golem",
+      "name": "Iron Golem",
+      "atk": {
+        "combat": 4
+      },
+      "def": {
+        "combat": 4,
+        "spell": 2
+      },
+      "hybridDef": {},
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 12
+    },
+    {
+      "id": "adept",
+      "name": "Ember Adept",
+      "atk": {
+        "spell": 5
+      },
+      "def": {},
+      "hybridDef": {},
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 4
+    },
+    {
+      "id": "scout",
+      "name": "Dust Scout",
+      "atk": {
+        "combat": 2
+      },
+      "def": {
+        "combat": 0
+      },
+      "hybridDef": {},
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    }
+  ],
+  "expected": {
+    "damage": [
+      {
+        "attacker": "archer",
+        "defender": "golem",
+        "damage": 0
+      },
+      {
+        "attacker": "archer",
+        "defender": "adept",
+        "damage": 3
+      },
+      {
+        "attacker": "golem",
+        "defender": "archer",
+        "damage": 3
+      },
+      {
+        "attacker": "adept",
+        "defender": "golem",
+        "damage": 3
+      },
+      {
+        "attacker": "adept",
+        "defender": "scout",
+        "damage": 5
+      },
+      {
+        "attacker": "scout",
+        "defender": "archer",
+        "damage": 1
+      }
+    ],
+    "hitsToDefeat": [
+      {
+        "attacker": "archer",
+        "defender": "golem",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "archer",
+        "defender": "adept",
+        "result": {
+          "kind": "defeats",
+          "hits": 2
+        }
+      },
+      {
+        "attacker": "golem",
+        "defender": "archer",
+        "result": {
+          "kind": "defeats",
+          "hits": 2
+        }
+      },
+      {
+        "attacker": "adept",
+        "defender": "golem",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "adept",
+        "defender": "scout",
+        "result": {
+          "kind": "no-hp"
+        }
+      },
+      {
+        "attacker": "scout",
+        "defender": "archer",
+        "result": {
+          "kind": "defeats",
+          "hits": 6
+        }
+      }
+    ]
+  }
+}

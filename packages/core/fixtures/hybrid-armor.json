@@ -1,0 +1,152 @@
+{
+  "name": "hybrid-armor",
+  "description": "Hybrid attacks hit both channels against base defense plus hybrid armor; hybrid armor does not count against single-channel attacks.",
+  "channels": [
+    {
+      "key": "physical",
+      "label": "Physical"
+    },
+    {
+      "key": "magic",
+      "label": "Magic"
+    }
+  ],
+  "entities": [
+    {
+      "id": "spellblade",
+      "name": "Spellblade",
+      "atk": {},
+      "def": {},
+      "hybridDef": {},
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 600,
+      "hybridAtk": {
+        "physical": 30,
+        "magic": 25
+      }
+    },
+    {
+      "id": "knight",
+      "name": "Knight",
+      "atk": {
+        "physical": 60
+      },
+      "def": {
+        "physical": 20,
+        "magic": 0
+      },
+      "hybridDef": {
+        "physical": 10,
+        "magic": 5
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 700
+    },
+    {
+      "id": "warden",
+      "name": "Warden",
+      "atk": {
+        "magic": 40
+      },
+      "def": {
+        "physical": 15,
+        "magic": 30
+      },
+      "hybridDef": {
+        "physical": 20,
+        "magic": 20
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {},
+      "hp": 650
+    }
+  ],
+  "expected": {
+    "damage": [
+      {
+        "attacker": "spellblade",
+        "defender": "knight",
+        "damage": 20
+      },
+      {
+        "attacker": "spellblade",
+        "defender": "warden",
+        "damage": 0
+      },
+      {
+        "attacker": "knight",
+        "defender": "spellblade",
+        "damage": 60
+      },
+      {
+        "attacker": "knight",
+        "defender": "warden",
+        "damage": 45
+      },
+      {
+        "attacker": "warden",
+        "defender": "knight",
+        "damage": 40
+      },
+      {
+        "attacker": "warden",
+        "defender": "spellblade",
+        "damage": 40
+      }
+    ],
+    "hitsToDefeat": [
+      {
+        "attacker": "spellblade",
+        "defender": "knight",
+        "result": {
+          "kind": "defeats",
+          "hits": 35
+        }
+      },
+      {
+        "attacker": "spellblade",
+        "defender": "warden",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "knight",
+        "defender": "spellblade",
+        "result": {
+          "kind": "defeats",
+          "hits": 10
+        }
+      },
+      {
+        "attacker": "knight",
+        "defender": "warden",
+        "result": {
+          "kind": "defeats",
+          "hits": 15
+        }
+      },
+      {
+        "attacker": "warden",
+        "defender": "knight",
+        "result": {
+          "kind": "defeats",
+          "hits": 18
+        }
+      },
+      {
+        "attacker": "warden",
+        "defender": "spellblade",
+        "result": {
+          "kind": "defeats",
+          "hits": 15
+        }
+      }
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 export type { Channel, Entity, InteractionMatrix, Mitigation, Project } from './types';
 export { mitigate } from './mitigation';
 export { damagePerHit, interactionMultiplier, timeToDefeat, type TimeToDefeat } from './combat';
+export { duel, duelMatrix, type Duel, type DuelWinner } from './duels';
 export {
   detectDelimiter,
   parseCsv,

@@ -16,22 +16,23 @@ describe('importEntities', () => {
       { key: '1', label: 'Channel 1' },
       { key: '2', label: 'Channel 2' },
     ]);
-    expect(result.entities).toHaveLength(5);
-    const [heavy, , , hybrid] = result.entities;
+    expect(result.entities).toHaveLength(6);
+    const [heavy, , , hybrid, , warden] = result.entities;
     expect(heavy).toEqual({
       id: 'heavy',
       name: 'Heavy Unit',
       category: 'unit',
       cost: 48,
-      hp: 680,
-      atk: { '1': 55, '2': 0 },
-      def: { '1': 48, '2': 40 },
-      hybridDef: { '1': 10, '2': 10 },
+      hp: 620,
+      atk: { '1': 34, '2': 0 },
+      def: { '1': 32, '2': 8 },
+      hybridDef: {},
       tags: { role: 'tank' },
       stats: {},
       extra: {},
     });
-    expect(hybrid?.hybridAtk).toEqual({ '1': 30, '2': 25 });
+    expect(hybrid?.hybridAtk).toEqual({ '1': 30, '2': 34 });
+    expect(warden?.hybridDef).toEqual({ '1': 10, '2': 10 });
     expect(result.layout).toEqual({ delimiter: ',', headers: CSV_TEMPLATE.split('\n')[0]?.split(',') });
   });
 

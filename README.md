@@ -24,15 +24,16 @@ Everything runs locally in your browser. Your data is never uploaded and there i
 
 ### 1. Get the template
 
-Open Métrix and choose **Download template** or **Copy template**. To look around before preparing your own file, choose **Try with example data**. The template is a CSV file with the header and one invented example of each kind of attacker:
+Open Métrix and choose **Download template** or **Copy template**. To look around before preparing your own file, choose **Try with example data**. The template is a CSV file with the header and six invented example units, balanced like rock-paper-scissors so every unit wins some duels and loses others:
 
 ```csv
 id,name,category,cost,hp,atk:1,def:1,atk:2,def:2,atk:hybrid:1,atk:hybrid:2,def:hybrid:1,def:hybrid:2,tag:role
-heavy,Heavy Unit,unit,48,680,55,48,0,40,,,10,10,tank
-ranged,Ranged Unit,unit,45,560,68,26,0,30,,,,,ranged
-caster,Caster Unit,unit,46,520,0,20,62,35,,,,,caster
-hybrid,Hybrid Unit,unit,47,600,0,32,0,34,30,25,,,hybrid
-fast,Fast Unit,unit,42,480,30,22,0,24,,,,,striker
+heavy,Heavy Unit,unit,48,620,34,32,0,8,,,,,tank
+ranged,Ranged Unit,unit,45,420,48,12,0,14,,,,,ranged
+caster,Caster Unit,unit,46,420,0,12,46,26,,,,,caster
+hybrid,Hybrid Unit,unit,47,460,0,16,0,16,30,34,,,hybrid
+fast,Fast Unit,unit,40,390,46,10,0,14,,,,,striker
+warden,Warden Unit,unit,49,600,0,8,36,32,,,10,10,guardian
 ```
 
 ### 2. Fill it with your catalog

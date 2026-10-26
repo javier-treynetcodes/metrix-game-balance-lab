@@ -177,6 +177,9 @@ describe('importEntities', () => {
   it('lists a line only once per issue', () => {
     const result = importEntities('id,name,hp,atk:x\na,A,-1,-1');
     expect(issue(result, 'negative-value')?.lines).toEqual([2]);
+    // Two stray quotes on the same line raise the same issue twice; the line is kept once.
+    const quotes = importEntities('id,name\na,12" x 4" Cannon');
+    expect(issue(quotes, 'stray-quote')?.lines).toEqual([2]);
   });
 
   it('reports only quote errors when the file has any', () => {

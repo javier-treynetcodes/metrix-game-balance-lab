@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   hitsMargin,
   matchup,
@@ -16,7 +16,7 @@ import { damageReasons } from '../../lib/explain';
 import type { GenreProfile } from '../../lib/genres';
 import { capitalize, formatHits, formatSigned, metricName } from '../../lib/metrics';
 import { statCode } from '../../lib/codes';
-import { attackChoiceOf, type CatalogSchema } from '../../lib/schema';
+import { attackChoiceOf, attackValue, type CatalogSchema } from '../../lib/schema';
 import { entityFields, type Row } from '../../state/catalog';
 
 interface VersusProps {
@@ -123,6 +123,8 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         </p>
       </section>
 
+      <StatCompare a={a} b={b} channels={channels} schema={schema} />
+
       <div className="versus-grid">
         {[
           { row: rowA, entity: a, other: b, side: 'A', breakdown: result.forward, hits: result.forwardHits },
@@ -130,7 +132,7 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         ].map(({ row, entity, other, side, breakdown, hits }) => (
           <section key={side} className="fighter" aria-label={`${side}: ${entity.name}`}>
             <header className="fighter-head">
-              <span className="side">{side}</span>
+              <span className={`side${side === 'B' ? ' side-b' : ''}`}>{side}</span>
               <h3>{entity.name}</h3>
               <AttackBadge entity={entity} channels={channels} />
             </header>
@@ -205,7 +207,7 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         </div>
       </section>
 
-      <div className="apply-bar">
+      <div className={`apply-bar${changedKeys.length > 0 ? ' is-sticky' : ''}`}>
         <p className="muted small">
           {changedKeys.length === 0
             ? 'Use − and + to try changes. Nothing reaches your catalog until you apply it.'
@@ -229,6 +231,69 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         </div>
       </div>
     </div>
+  );
+}
+
+/** Facing bars per stat: where the two entities really differ, at a glance. */
+function StatCompare({
+  a,
+  b,
+  channels,
+  schema,
+}: {
+  a: Entity;
+  b: Entity;
+  channels: readonly Channel[];
+  schema: CatalogSchema;
+}) {
+  const stats: { label: ReactNode; key: string; a: number | undefined; b: number | undefined }[] = [];
+  if (a.hp !== undefined || b.hp !== undefined) stats.push({ label: 'HP', key: 'hp', a: a.hp, b: b.hp });
+  if (a.cost !== undefined || b.cost !== undefined) stats.push({ label: 'Cost', key: 'cost', a: a.cost, b: b.cost });
+  stats.push({ label: 'Attack', key: 'attack', a: attackValue(a), b: attackValue(b) });
+  for (const key of schema.defChannels) {
+    stats.push({
+      label: <StatCode kind="def" channels={channels} channelKey={key} />,
+      key: `def-${key}`,
+      a: a.def[key] ?? 0,
+      b: b.def[key] ?? 0,
+    });
+  }
+  for (const key of schema.hybridDefChannels) {
+    stats.push({
+      label: <StatCode kind="arm" channels={channels} channelKey={key} />,
+      key: `arm-${key}`,
+      a: a.hybridDef[key] ?? 0,
+      b: b.hybridDef[key] ?? 0,
+    });
+  }
+
+  return (
+    <section className="stat-compare" aria-label={`${a.name} and ${b.name} side by side`}>
+      <div className="compare-names">
+        <span className="side">A</span>
+        <span>{a.name}</span>
+        <span className="compare-spacer" />
+        <span>{b.name}</span>
+        <span className="side side-b">B</span>
+      </div>
+      {stats.map((stat) => {
+        const top = Math.max(stat.a ?? 0, stat.b ?? 0, 1);
+        const leader = (stat.a ?? 0) === (stat.b ?? 0) ? 'none' : (stat.a ?? 0) > (stat.b ?? 0) ? 'a' : 'b';
+        return (
+          <div key={stat.key} className="compare-row">
+            <span className={`compare-value${leader === 'a' ? ' lead' : ''}`}>{stat.a ?? '—'}</span>
+            <span className="compare-bar side-a">
+              <span style={{ width: `${((stat.a ?? 0) / top) * 100}%` }} />
+            </span>
+            <span className="compare-label">{stat.label}</span>
+            <span className="compare-bar side-b">
+              <span style={{ width: `${((stat.b ?? 0) / top) * 100}%` }} />
+            </span>
+            <span className={`compare-value${leader === 'b' ? ' lead' : ''}`}>{stat.b ?? '—'}</span>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

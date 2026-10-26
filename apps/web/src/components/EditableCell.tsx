@@ -34,19 +34,41 @@ export function EditableCell({ display, value, label, numeric = false, onCommit 
     setEditing(true);
   };
 
-  const finish = (save: boolean) => {
-    if (closing.current) return;
+  /** Closes the editor; returns false when the value was rejected and editing goes on. */
+  const finish = (save: boolean): boolean => {
+    if (closing.current) return true;
     if (save && text !== value) {
       const problem = onCommit(text);
       if (problem) {
         setError(problem);
-        return;
+        return false;
       }
     }
     closing.current = true;
     setEditing(false);
     setError(null);
     requestAnimationFrame(() => buttonRef.current?.focus());
+    return true;
+  };
+
+  /** Spreadsheet keys: Enter goes to the cell below, Tab to the next cell, Shift+Tab to the previous one. */
+  const move = (direction: 'down' | 'next' | 'previous') => {
+    requestAnimationFrame(() => {
+      const button = buttonRef.current;
+      const cell = button?.closest('td, th');
+      const table = button?.closest('table');
+      if (!button || !(cell instanceof HTMLTableCellElement) || !table) return;
+      let target: Element | undefined;
+      if (direction === 'down') {
+        const position = [...cell.querySelectorAll('.cell-button')].indexOf(button);
+        const below = cell.parentElement?.nextElementSibling?.children[cell.cellIndex];
+        target = below?.querySelectorAll('.cell-button')[position];
+      } else {
+        const all = [...table.querySelectorAll('.cell-button')];
+        target = all[all.indexOf(button) + (direction === 'next' ? 1 : -1)];
+      }
+      if (target instanceof HTMLButtonElement) target.click();
+    });
   };
 
   if (!editing) {
@@ -72,8 +94,12 @@ export function EditableCell({ display, value, label, numeric = false, onCommit 
           setError(null);
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') finish(true);
+          if (event.key === 'Enter' && finish(true)) move('down');
           if (event.key === 'Escape') finish(false);
+          if (event.key === 'Tab') {
+            event.preventDefault();
+            if (finish(true)) move(event.shiftKey ? 'previous' : 'next');
+          }
         }}
         onBlur={() => {
           if (!error) finish(true);

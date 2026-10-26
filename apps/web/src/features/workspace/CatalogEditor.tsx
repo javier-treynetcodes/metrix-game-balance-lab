@@ -140,7 +140,7 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
         </div>
       </div>
       <p className="muted small intro">
-        Click a value to edit it. Whole numbers only. Each entity deals one kind of attack: type a value under another
+        Click a value to edit it; Enter saves and moves down, Tab moves right. Whole numbers only. Each entity deals one kind of attack: type a value under another
         ATK or HYB to switch it. Changes are highlighted and update duels instantly. To add new columns, add them to your
         file from the template and import it again.
       </p>

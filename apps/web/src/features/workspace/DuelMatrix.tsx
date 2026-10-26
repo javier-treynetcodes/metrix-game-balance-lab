@@ -17,6 +17,20 @@ interface DuelMatrixProps {
   onOpen: (attackerKey: string, defenderKey: string) => void;
 }
 
+/** How decisive a duel is, from 1 (narrow) to 3 (crushing), to set the color strength. */
+function strength(result: Matchup, metric: Metric): 1 | 2 | 3 {
+  let ratio = 0;
+  if (metric === 'hits') {
+    const f = result.forwardHits.kind === 'defeats' ? result.forwardHits.hits : undefined;
+    const b = result.backwardHits.kind === 'defeats' ? result.backwardHits.hits : undefined;
+    ratio = f === undefined || b === undefined ? 1 : Math.abs(f - b) / Math.max(f, b);
+  } else {
+    const top = Math.max(result.forward.damage, result.backward.damage);
+    ratio = top === 0 ? 0 : Math.abs(result.trade) / top;
+  }
+  return ratio >= 0.5 ? 3 : ratio >= 0.2 ? 2 : 1;
+}
+
 function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string {
   if (metric === 'hits') {
     return result.forwardHits.kind === 'defeats' ? String(result.forwardHits.hits) : formatHits(result.forwardHits, genre);
@@ -28,6 +42,8 @@ function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string 
 export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
   const [metric, setMetric] = useState<Metric>(genre.primary);
   const [category, setCategory] = useState(ALL);
+  const [sortByRecord, setSortByRecord] = useState(false);
+  const [hover, setHover] = useState<{ row: number; column: number } | null>(null);
   const categories = useMemo(
     () => [...new Set(rows.flatMap(({ entity }) => (entity.category ? [entity.category] : [])))],
     [rows],
@@ -47,6 +63,16 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
       losses: opponents.filter((result) => winnerBy(result, metric) === 'defender').length,
     };
   });
+
+  // Display order: input order, or best win–loss record first. Rows and columns share it.
+  const order = shown.map((_row, index) => index);
+  if (sortByRecord) {
+    order.sort((a, b) => {
+      const ra = records[a] ?? { wins: 0, losses: 0 };
+      const rb = records[b] ?? { wins: 0, losses: 0 };
+      return rb.wins - ra.wins || ra.losses - rb.losses;
+    });
+  }
 
   const walls = shown
     .map((defender, column) => ({
@@ -97,10 +123,17 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
           </label>
         )}
         {ranks && (
+          <label className="check-field">
+            <input type="checkbox" checked={sortByRecord} onChange={(event) => setSortByRecord(event.target.checked)} />
+            Best record first
+          </label>
+        )}
+        {ranks && (
           <ul className="legend" aria-label="Legend">
-            <li><span className="swatch win" /> Row wins</li>
-            <li><span className="swatch loss" /> Row loses</li>
-            <li><span className="swatch draw" /> Draw or no winner</li>
+            <li><span className="swatch win" /> ▲ Row wins</li>
+            <li><span className="swatch loss" /> ▼ Row loses</li>
+            <li><span className="swatch draw" /> = Draw or no winner</li>
+            <li className="muted">Stronger color = bigger margin</li>
           </ul>
         )}
       </div>
@@ -111,44 +144,60 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
       </p>
 
       <div className="table-scroll">
-        <table className="duel-table">
+        <table className="duel-table" onMouseLeave={() => setHover(null)}>
           <thead>
             <tr>
               <th scope="col" className="corner">
                 Attacker ↓ / Defender →
               </th>
-              {shown.map(({ key, entity }) => (
-                <th key={key} scope="col" className="defender">
-                  <span>{entity.name}</span>
-                </th>
-              ))}
+              {order.map((index) => {
+                const { key, entity } = shown[index] as Row;
+                return (
+                  <th key={key} scope="col" className={`defender${hover?.column === index ? ' hl' : ''}`}>
+                    <span>{entity.name}</span>
+                  </th>
+                );
+              })}
               {ranks && <th scope="col" className="record">W–L</th>}
             </tr>
           </thead>
           <tbody>
-            {grid.map((resultRow, rowIndex) => {
+            {order.map((rowIndex) => {
               const attacker = shown[rowIndex] as Row;
               const record = records[rowIndex] ?? { wins: 0, losses: 0 };
               return (
                 <tr key={attacker.key}>
-                  <th scope="row" className="attacker">{attacker.entity.name}</th>
-                  {resultRow.map((result, columnIndex) => {
+                  <th scope="row" className={`attacker${hover?.row === rowIndex ? ' hl' : ''}`}>{attacker.entity.name}</th>
+                  {order.map((columnIndex) => {
                     const defender = shown[columnIndex] as Row;
-                    if (rowIndex === columnIndex) return <td key={defender.key} className="cell self" aria-label="Same entity" />;
+                    const result = grid[rowIndex]?.[columnIndex] as Matchup;
+                    const crossed = hover && (hover.row === rowIndex || hover.column === columnIndex) ? ' crossed' : '';
+                    if (rowIndex === columnIndex) {
+                      return <td key={defender.key} className={`cell self${crossed}`} aria-label="Same entity" />;
+                    }
                     const winner = winnerBy(result, metric);
                     const tone = !ranks ? 'neutral' : winner === 'attacker' ? 'win' : winner === 'defender' ? 'loss' : 'draw';
                     const margin = hitsMargin(result);
                     const close = metric === 'hits' && margin !== undefined && Math.abs(margin) === 1;
                     const text = cellText(result, metric, genre);
+                    const mark = tone === 'win' ? '▲' : tone === 'loss' ? '▼' : tone === 'draw' ? '=' : '';
                     return (
-                      <td key={defender.key} className={`cell ${tone}${close ? ' close' : ''}`}>
+                      <td
+                        key={defender.key}
+                        className={`cell ${tone} level-${strength(result, metric)}${close ? ' close' : ''}${crossed}`}
+                        onMouseEnter={() => setHover({ row: rowIndex, column: columnIndex })}
+                      >
                         <button
                           type="button"
                           className="cell-link"
                           onClick={() => onOpen(attacker.key, defender.key)}
-                          aria-label={`${attacker.entity.name} against ${defender.entity.name}: ${text}. Open in Versus`}
+                          onFocus={() => setHover({ row: rowIndex, column: columnIndex })}
+                          aria-label={`${attacker.entity.name} against ${defender.entity.name}: ${text}${
+                            tone === 'win' ? ', row wins' : tone === 'loss' ? ', row loses' : ''
+                          }. Open in Versus`}
                           title={close ? 'Close fight' : undefined}
                         >
+                          {mark && <span className="cell-mark" aria-hidden="true">{mark}</span>}
                           {text}
                         </button>
                       </td>

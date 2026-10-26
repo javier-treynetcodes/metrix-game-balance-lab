@@ -1,3 +1,7 @@
+/**
+ * @file Browser entry point: loads the font and styles and mounts the React app.
+ */
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/saira';

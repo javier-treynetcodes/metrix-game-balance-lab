@@ -1,5 +1,11 @@
+/**
+ * @file RFC 4180 CSV parser with delimiter detection and quote error reporting.
+ */
+
+/** Column separators Métrix detects: comma, semicolon (common in Spanish/German spreadsheets) and tab. */
 export type Delimiter = ',' | ';' | '\t';
 
+/** One row of the file as raw text cells, before any interpretation. */
 export interface CsvRecord {
   cells: string[];
   /** 1-based source line number where the record starts. */
@@ -13,6 +19,7 @@ export interface CsvSyntaxError {
   line: number;
 }
 
+/** Result of `parseCsv`: the detected delimiter, the rows and any quote problems found. */
 export interface ParsedCsv {
   delimiter: Delimiter;
   /** Records of raw cells, header first. Blank lines are skipped. */
@@ -51,7 +58,13 @@ export function parseCsv(input: string): ParsedCsv {
 
   let row: string[] = [];
   let cell = '';
-  /** start: nothing read yet · plain: unquoted text · quoted: inside quotes · closed: after the closing quote */
+  /**
+   * State of the cell being read:
+   * - `start`: nothing read yet in this cell.
+   * - `plain`: reading an unquoted value.
+   * - `quoted`: inside a value wrapped in double quotes (delimiters and line breaks are literal).
+   * - `closed`: right after the closing quote; only a delimiter or a line break may follow.
+   */
   let field: 'start' | 'plain' | 'quoted' | 'closed' = 'start';
   let line = 1;
   let rowStart = 1;

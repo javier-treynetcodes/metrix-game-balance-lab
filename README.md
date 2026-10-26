@@ -172,4 +172,12 @@ Métrix processes your catalog inside your browser. Nothing is sent to any serve
 
 ## Development
 
-See [docs/development.md](docs/development.md).
+Requires Node.js 20 or later.
+
+```bash
+npm install         # install every workspace
+npm run dev         # web app at http://localhost:5173/metrix-game-balance-lab/
+npm run check       # lint, type check, tests (100% coverage required) and build, as in CI
+```
+
+`dev` is the working branch; every push to `prod` deploys the web app to GitHub Pages. Code conventions are in [CLAUDE.md](CLAUDE.md).

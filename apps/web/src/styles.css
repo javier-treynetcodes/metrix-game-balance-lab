@@ -1757,12 +1757,6 @@ tr.is-new > * {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface-strong);
-  transition: border-color 0.15s, transform 0.15s;
-}
-
-.feature-card:hover {
-  border-color: rgba(0, 240, 255, 0.4);
-  transform: translateY(-2px);
 }
 
 .feature-card h2 {

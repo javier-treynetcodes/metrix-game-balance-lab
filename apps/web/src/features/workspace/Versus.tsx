@@ -4,11 +4,15 @@
 
 import { useState, type ReactNode } from 'react';
 import {
+  complementsFor,
   hitsMargin,
   matchup,
   validateEntity,
   winnerBy,
+  withComplements,
+  type ArmorCoverage,
   type Channel,
+  type Complement,
   type DamageBreakdown,
   type Entity,
   type HitsToDefeat,
@@ -20,7 +24,7 @@ import { damageReasons } from '../../lib/explain';
 import type { GenreProfile } from '../../lib/genres';
 import { capitalize, formatHits, formatSigned, metricName } from '../../lib/metrics';
 import { statCode } from '../../lib/codes';
-import { attackChoiceOf, attackValue, type CatalogSchema } from '../../lib/schema';
+import { attackValue, displayName, type CatalogSchema } from '../../lib/schema';
 import { entityFields, type Row } from '../../state/catalog';
 
 interface VersusProps {
@@ -28,6 +32,10 @@ interface VersusProps {
   rows: readonly Row[];
   /** The two damage channels of the catalog. */
   channels: readonly Channel[];
+  /** How much of each channel every armor stops. */
+  coverage: ArmorCoverage;
+  /** Active complements; each side can add those of its class. */
+  complements: readonly Complement[];
   /** Columns available in the imported file; decides which steppers are shown. */
   schema: CatalogSchema;
   /** Genre profile: the metric behind the verdict and the word for one attack. */
@@ -44,26 +52,78 @@ function hitsCount(result: HitsToDefeat): number | undefined {
   return result.kind === 'defeats' ? result.hits : undefined;
 }
 
+/** One complement's bonus on one stat, to show where an equipped value comes from. */
+interface Bonus {
+  name: string;
+  value: number;
+}
+
+/** Bonuses that the complements add to a stat (`atk` or `def`) on a channel, by complement name. */
+function bonusesOf(applied: readonly Complement[], kind: 'atk' | 'def', channel: string): Bonus[] {
+  return applied.flatMap((complement) => {
+    const value = complement[kind][channel] ?? 0;
+    return value > 0 ? [{ name: complement.name, value }] : [];
+  });
+}
+
+/** "26 + 4 Twin Blade": a base value and the bonuses that make up an equipped value. */
+function BonusSum({ base, bonuses }: { base: number; bonuses: readonly Bonus[] }) {
+  if (bonuses.length === 0) return <>{base}</>;
+  return (
+    <span className="bonus-sum">
+      ({base}
+      {bonuses.map(({ name, value }) => (
+        <span key={name} className="bonus">
+          {' '}
+          + {value} <span className="bonus-name">{name}</span>
+        </span>
+      ))}
+      )
+    </span>
+  );
+}
+
+/** Everything one side of the duel brings: base values, equipped values and the complements used. */
+interface Side {
+  base: Entity;
+  fighter: Entity;
+  applied: Complement[];
+}
+
+function sideOf(base: Entity, complements: readonly Complement[], equipped: boolean): Side {
+  const applied = equipped ? complementsFor(base, complements) : [];
+  return { base, fighter: equipped ? withComplements(base, applied) : base, applied };
+}
+
 /**
  * Head-to-head view of two entities.
  *
  * Shows the verdict for the genre's metric, facing stat bars, every subtraction behind each
  * hit (with bars for blocked and dealt damage), plain-language reasons and all four metrics.
- * The "Try changes" steppers edit local drafts only; "Apply to catalog" saves them as a
- * single undo step after checking them with `validateEntity`.
+ * Each side can fight with its base values or with the active complements of its class; the
+ * breakdown names every bonus. The "Try changes" steppers edit base values in local drafts
+ * only; "Apply to catalog" saves them as a single undo step after checking them.
  */
-export function Versus({ rows, channels, schema, genre, pair, onPairChange, onApply }: VersusProps) {
+export function Versus({ rows, channels, coverage, complements, schema, genre, pair, onPairChange, onApply }: VersusProps) {
   const byKey = new Map(rows.map((row) => [row.key, row]));
   const rowA = byKey.get(pair[0]);
   const rowB = byKey.get(pair[1]);
   // What-if drafts, per row key. They only reach the catalog with Apply.
   const [drafts, setDrafts] = useState<Record<string, Entity>>({});
+  // Whether each side fights with its class's complements.
+  const [equipped, setEquipped] = useState<[boolean, boolean]>([false, false]);
 
   if (!rowA || !rowB) return <p className="empty tab-body">Pick two entities to compare.</p>;
 
-  const a = drafts[rowA.key] ?? rowA.entity;
-  const b = rowA.key === rowB.key ? a : (drafts[rowB.key] ?? rowB.entity);
-  const result = matchup(a, b, channels);
+  const baseA = drafts[rowA.key] ?? rowA.entity;
+  const baseB = rowA.key === rowB.key ? baseA : (drafts[rowB.key] ?? rowB.entity);
+  const sideA = sideOf(baseA, complements, equipped[0]);
+  const sideB = sideOf(baseB, complements, equipped[1]);
+  const a = sideA.fighter;
+  const b = sideB.fighter;
+  const nameA = displayName(a);
+  const nameB = displayName(b);
+  const result = matchup(a, b, channels, coverage);
   const metric = genre.primary;
   const winner = winnerBy(result, metric);
   const margin = hitsMargin(result);
@@ -73,7 +133,7 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
     const original = byKey.get(key)?.entity;
     return original && JSON.stringify(entityFields(original)) !== JSON.stringify(entityFields(drafts[key] as Entity));
   });
-  const problems = changedKeys.flatMap((key) => validateEntity(drafts[key] as Entity, channels));
+  const problems = changedKeys.flatMap((key) => validateEntity(drafts[key] as Entity));
 
   const setDraft = (row: Row, next: Entity) => setDrafts((current) => ({ ...current, [row.key]: next }));
 
@@ -83,20 +143,20 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
     if (metric === 'hits') {
       if (winner === 'none') return { title: 'Neither can defeat the other', detail: 'Both deal 0 damage, or neither has hp.' };
       if (winner === 'draw') return { title: 'Even match', detail: `Both fall after ${fa} ${hit}s.` };
-      const [w, l, wh, lh] = winner === 'attacker' ? [a, b, fa, fb] : [b, a, fb, fa];
-      const loserText = lh === undefined ? `${l.name} cannot defeat ${w.name}` : `${l.name} needs ${lh}`;
-      return { title: `${w.name} is stronger`, detail: `Defeats ${l.name} in ${wh} ${hit}s; ${loserText}.` };
+      const [w, l, wh, lh] = winner === 'attacker' ? [nameA, nameB, fa, fb] : [nameB, nameA, fb, fa];
+      const loserText = lh === undefined ? `${l} cannot defeat ${w}` : `${l} needs ${lh}`;
+      return { title: `${w} is stronger`, detail: `Defeats ${l} in ${wh} ${hit}s; ${loserText}.` };
     }
     if (winner === 'none') return { title: 'Neither deals damage', detail: 'Both attacks are fully stopped.' };
     if (winner === 'draw') return { title: 'Even trade', detail: `Both deal ${result.forward.damage} per ${hit}.` };
-    const [w, l] = winner === 'attacker' ? [a, b] : [b, a];
+    const [w, l] = winner === 'attacker' ? [nameA, nameB] : [nameB, nameA];
     const trade = winner === 'attacker' ? result.trade : -result.trade;
-    return { title: `${w.name} is stronger`, detail: `Wins every exchange with ${l.name} by ${formatSigned(trade)} per ${hit}.` };
+    return { title: `${w} is stronger`, detail: `Wins every exchange with ${l} by ${formatSigned(trade)} per ${hit}.` };
   })();
 
   const costLine =
     a.cost !== undefined && b.cost !== undefined && a.cost !== b.cost
-      ? `${a.cost > b.cost ? a.name : b.name} costs ${Math.abs(a.cost - b.cost)} more.`
+      ? `${a.cost > b.cost ? nameA : nameB} costs ${Math.abs(a.cost - b.cost)} more.`
       : a.cost !== undefined && a.cost === b.cost
         ? 'Both cost the same.'
         : null;
@@ -109,7 +169,7 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
           <select value={rowA.key} onChange={(event) => onPairChange([event.target.value, rowB.key])}>
             {rows.map((row) => (
               <option key={row.key} value={row.key}>
-                {row.entity.name}
+                {displayName(row.entity)}
               </option>
             ))}
           </select>
@@ -122,7 +182,7 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
           <select value={rowB.key} onChange={(event) => onPairChange([rowA.key, event.target.value])}>
             {rows.map((row) => (
               <option key={row.key} value={row.key}>
-                {row.entity.name}
+                {displayName(row.entity)}
               </option>
             ))}
           </select>
@@ -142,51 +202,76 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         </p>
       </section>
 
-      <StatCompare a={a} b={b} channels={channels} schema={schema} />
+      <StatCompare a={a} b={b} nameA={nameA} nameB={nameB} channels={channels} schema={schema} />
 
       <div className="versus-grid">
         {[
-          { row: rowA, entity: a, other: b, side: 'A', breakdown: result.forward, hits: result.forwardHits },
-          { row: rowB, entity: b, other: a, side: 'B', breakdown: result.backward, hits: result.backwardHits },
-        ].map(({ row, entity, other, side, breakdown, hits }) => (
-          <section key={side} className="fighter" aria-label={`${side}: ${entity.name}`}>
-            <header className="fighter-head">
-              <span className={`side${side === 'B' ? ' side-b' : ''}`}>{side}</span>
-              <h3>{entity.name}</h3>
-              <AttackBadge entity={entity} channels={channels} />
-            </header>
+          { index: 0, row: rowA, own: sideA, rival: sideB, side: 'A', breakdown: result.forward, hits: result.forwardHits },
+          { index: 1, row: rowB, own: sideB, rival: sideA, side: 'B', breakdown: result.backward, hits: result.backwardHits },
+        ].map(({ index, row, own, rival, side, breakdown, hits }) => {
+          const name = displayName(own.fighter);
+          const otherName = displayName(rival.fighter);
+          const available = complementsFor(own.base, complements);
+          return (
+            <section key={side} className="fighter" aria-label={`${side}: ${name}`}>
+              <header className="fighter-head">
+                <span className={`side${side === 'B' ? ' side-b' : ''}`}>{side}</span>
+                <h3>{name}</h3>
+                <AttackBadge entity={own.fighter} channels={channels} />
+              </header>
 
-            <WhatIf
-              entity={entity}
-              original={row.entity}
-              channels={channels}
-              schema={schema}
-              onChange={(next) => setDraft(row, next)}
-            />
-
-            <Breakdown
-              title={`${entity.name} hits ${other.name}`}
-              breakdown={breakdown}
-              channels={channels}
-              hit={hit}
-            />
-            <p className="hits-line">
-              {hits.kind === 'defeats' ? (
-                <>
-                  <strong>{formatHits(hits, genre)}</strong> of {breakdown.damage} damage to bring {other.name}&apos;s {other.hp} hp
-                  to 0.
-                </>
-              ) : (
-                <strong>{hits.kind === 'cannot-damage' ? `Can't damage ${other.name}` : `${other.name} has no hp`}</strong>
+              {available.length > 0 && (
+                <div className="loadout">
+                  <label className="check-field">
+                    <input
+                      type="checkbox"
+                      checked={equipped[index] ?? false}
+                      onChange={(event) =>
+                        setEquipped((current) => (index === 0 ? [event.target.checked, current[1]] : [current[0], event.target.checked]))
+                      }
+                    />
+                    With complements
+                  </label>
+                  <p className="muted small">
+                    {own.base.class}: {available.map((complement) => complement.name).join(', ')}
+                  </p>
+                </div>
               )}
-            </p>
-            <ul className="reasons">
-              {damageReasons(entity.name, other.name, breakdown, channels).map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          </section>
-        ))}
+
+              <WhatIf
+                entity={own.base}
+                original={row.entity}
+                channels={channels}
+                schema={schema}
+                onChange={(next) => setDraft(row, next)}
+              />
+
+              <Breakdown
+                title={`${name} hits ${otherName}`}
+                breakdown={breakdown}
+                channels={channels}
+                attacker={own}
+                defender={rival}
+                hit={hit}
+              />
+              <p className="hits-line">
+                {hits.kind === 'defeats' ? (
+                  <>
+                    <strong>{formatHits(hits, genre)}</strong> of {breakdown.damage} damage to bring {otherName}&apos;s{' '}
+                    {rival.fighter.hp} hp to 0.
+                  </>
+                ) : (
+                  <strong>{hits.kind === 'cannot-damage' ? `Can't damage ${otherName}` : `${otherName} has no hp`}</strong>
+                )}
+              </p>
+              <ul className="reasons">
+                {damageReasons(name, otherName, breakdown, channels).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </div>
 
       <section className="measures" aria-labelledby="measures-title">
@@ -196,8 +281,8 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
           <thead>
             <tr>
               <th scope="col">Measure</th>
-              <th scope="col" className="num">{a.name} → {b.name}</th>
-              <th scope="col" className="num">{b.name} → {a.name}</th>
+              <th scope="col" className="num">{nameA} → {nameB}</th>
+              <th scope="col" className="num">{nameB} → {nameA}</th>
             </tr>
           </thead>
           <tbody>
@@ -230,7 +315,8 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
         <p className="muted small">
           {changedKeys.length === 0
             ? 'Use − and + to try changes. Nothing reaches your catalog until you apply it.'
-            : problems[0]?.message ?? `Trying changes on ${changedKeys.map((key) => byKey.get(key)?.entity.name).join(' and ')}.`}
+            : problems[0]?.message ??
+              `Trying changes on ${changedKeys.map((key) => displayName(byKey.get(key)?.entity as Entity)).join(' and ')}.`}
         </p>
         <div className="button-row">
           <button type="button" className="button button-ghost" disabled={changedKeys.length === 0} onClick={() => setDrafts({})}>
@@ -257,11 +343,15 @@ export function Versus({ rows, channels, schema, genre, pair, onPairChange, onAp
 function StatCompare({
   a,
   b,
+  nameA,
+  nameB,
   channels,
   schema,
 }: {
   a: Entity;
   b: Entity;
+  nameA: string;
+  nameB: string;
   channels: readonly Channel[];
   schema: CatalogSchema;
 }) {
@@ -277,22 +367,14 @@ function StatCompare({
       b: b.def[key] ?? 0,
     });
   }
-  for (const key of schema.hybridDefChannels) {
-    stats.push({
-      label: <StatCode kind="arm" channels={channels} channelKey={key} />,
-      key: `arm-${key}`,
-      a: a.hybridDef[key] ?? 0,
-      b: b.hybridDef[key] ?? 0,
-    });
-  }
 
   return (
-    <section className="stat-compare" aria-label={`${a.name} and ${b.name} side by side`}>
+    <section className="stat-compare" aria-label={`${nameA} and ${nameB} side by side`}>
       <div className="compare-names">
         <span className="side">A</span>
-        <span>{a.name}</span>
+        <span>{nameA}</span>
         <span className="compare-spacer" />
-        <span>{b.name}</span>
+        <span>{nameB}</span>
         <span className="side side-b">B</span>
       </div>
       {stats.map((stat) => {
@@ -316,15 +398,24 @@ function StatCompare({
   );
 }
 
+/**
+ * Every subtraction of one hit: attack on each channel minus the armor that covers it.
+ * Equipped values show their base and the bonus of each complement by name, and armors
+ * that stop only part of a channel show their percentage.
+ */
 function Breakdown({
   title,
   breakdown,
   channels,
+  attacker,
+  defender,
   hit,
 }: {
   title: string;
   breakdown: DamageBreakdown;
   channels: readonly Channel[];
+  attacker: Side;
+  defender: Side;
   hit: string;
 }) {
   // Bars share one scale so rows can be compared at a glance.
@@ -336,20 +427,41 @@ function Breakdown({
       <ul className="damage-rows">
         {breakdown.rows.map((row) => {
           const blocked = row.attack - row.damage;
-          const tone = row.source === 'hybrid' ? 'hybrid' : channelTone(channels, row.channel);
+          const tone = channelTone(channels, row.channel);
+          const attackBonuses = bonusesOf(attacker.applied, 'atk', row.channel);
+          const combined = row.armor.length > 1 || row.armor.some(({ percent }) => percent !== 100);
           return (
-            <li key={`${row.source}-${row.channel}`} className="damage-row">
+            <li key={row.channel} className="damage-row">
               <div className="damage-line">
-                <StatCode kind={row.source === 'hybrid' ? 'hyb' : 'atk'} channels={channels} channelKey={row.channel} />
+                <StatCode kind="atk" channels={channels} channelKey={row.channel} />
                 <span className="expression">
-                  {row.attack} − <StatCode kind="def" channels={channels} channelKey={row.channel} /> {row.defense}
-                  {row.hybridDefense > 0 && (
+                  {row.attack}
+                  {attackBonuses.length > 0 && (
                     <>
                       {' '}
-                      − <StatCode kind="arm" channels={channels} channelKey={row.channel} /> {row.hybridDefense}
+                      <BonusSum base={attacker.base.atk[row.channel] ?? 0} bonuses={attackBonuses} />
                     </>
                   )}{' '}
-                  = <strong>{row.damage}</strong>
+                  −{' '}
+                  {row.armor.length === 0 && <span className="muted">no armor covers it</span>}
+                  {combined && '('}
+                  {row.armor.map(({ armor, value, percent }, index) => {
+                    const armorBonuses = bonusesOf(defender.applied, 'def', armor);
+                    return (
+                      <span key={armor}>
+                        {index > 0 && ' + '}
+                        <StatCode kind="def" channels={channels} channelKey={armor} /> {value}
+                        {armorBonuses.length > 0 && (
+                          <>
+                            {' '}
+                            <BonusSum base={defender.base.def[armor] ?? 0} bonuses={armorBonuses} />
+                          </>
+                        )}
+                        {percent !== 100 && ` × ${percent} %`}
+                      </span>
+                    );
+                  })}
+                  {combined && `) = ${row.defense}`} = <strong>{row.damage}</strong>
                 </span>
                 {row.fullDamage && <span className="tag tag-warn">full damage</span>}
               </div>
@@ -373,10 +485,14 @@ function Breakdown({
         {breakdown.rows.length > 1 ? `${breakdown.rows.map((row) => row.damage).join(' + ')} = ` : ''}
         <strong>{breakdown.damage}</strong>
       </p>
+      {breakdown.rows.some(({ armor }) => armor.some(({ percent }) => percent !== 100)) && (
+        <p className="muted small">Armor shares are set in Damage rules and rounded down.</p>
+      )}
     </div>
   );
 }
 
+/** - and + steppers on the base values of one side. Drafts stay local until applied. */
 function WhatIf({
   entity,
   original,
@@ -390,29 +506,17 @@ function WhatIf({
   schema: CatalogSchema;
   onChange: (next: Entity) => void;
 }) {
-  const choice = attackChoiceOf(entity);
   const steppers: { label: string; value: number; was: number | undefined; min?: number; set: (value: number) => Entity }[] = [];
   if (entity.hp !== undefined) {
     steppers.push({ label: 'HP', value: entity.hp, was: original.hp, min: 1, set: (hp) => ({ ...entity, hp }) });
   }
-  if (choice.startsWith('ch:')) {
-    const key = choice.slice(3);
+  for (const key of schema.atkChannels) {
     steppers.push({
       label: statCode('atk', channels, key),
       value: entity.atk[key] ?? 0,
-      was: original.atk[key],
+      was: original.atk[key] ?? 0,
       set: (value) => ({ ...entity, atk: { ...entity.atk, [key]: value } }),
     });
-  }
-  if (entity.hybridAtk) {
-    for (const { key } of channels) {
-      steppers.push({
-        label: statCode('hyb', channels, key),
-        value: entity.hybridAtk[key] ?? 0,
-        was: original.hybridAtk?.[key],
-        set: (value) => ({ ...entity, hybridAtk: { ...entity.hybridAtk, [key]: value } }),
-      });
-    }
   }
   for (const key of schema.defChannels) {
     steppers.push({
@@ -420,14 +524,6 @@ function WhatIf({
       value: entity.def[key] ?? 0,
       was: original.def[key] ?? 0,
       set: (value) => ({ ...entity, def: { ...entity.def, [key]: value } }),
-    });
-  }
-  for (const key of schema.hybridDefChannels) {
-    steppers.push({
-      label: statCode('arm', channels, key),
-      value: entity.hybridDef[key] ?? 0,
-      was: original.hybridDef[key] ?? 0,
-      set: (value) => ({ ...entity, hybridDef: { ...entity.hybridDef, [key]: value } }),
     });
   }
 

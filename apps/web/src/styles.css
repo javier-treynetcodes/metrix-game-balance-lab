@@ -16,7 +16,18 @@
   --color-warning: #f5c451;
   --color-ok: #7ee2a8;
   --color-changed: rgba(245, 196, 81, 0.12);
-  --gradient-hybrid: linear-gradient(135deg, var(--color-cyan), var(--color-violet));
+  --gradient-mixed: linear-gradient(135deg, var(--color-cyan), var(--color-violet));
+  /* Motion: one duration and easing for every hover and focus change, so nothing jumps. */
+  --motion-duration: 200ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-interactive:
+    color var(--motion-duration) var(--motion-ease),
+    background-color var(--motion-duration) var(--motion-ease),
+    border-color var(--motion-duration) var(--motion-ease),
+    box-shadow var(--motion-duration) var(--motion-ease),
+    outline-color var(--motion-duration) var(--motion-ease),
+    transform var(--motion-duration) var(--motion-ease),
+    opacity var(--motion-duration) var(--motion-ease);
   --font-sans: 'Saira Variable', system-ui, sans-serif;
   --radius: 6px;
   --space-1: 0.25rem;
@@ -46,6 +57,39 @@ html {
   html {
     scroll-behavior: auto;
   }
+
+  /* Hover and focus changes still happen, just without animation. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+  }
+}
+
+/*
+ * Every interactive element animates its hover and focus changes with the same timing,
+ * instead of switching colors abruptly.
+ */
+.button,
+.tab,
+.sort-button,
+.icon-button,
+.link-button,
+.genre-card,
+.cell-button,
+.cell,
+.cell-link,
+.header-link,
+.sponsor-button,
+.menu-item,
+.footer-links a,
+.segmented label,
+.dropzone,
+.data-table tbody tr,
+.field input,
+.field select,
+.percent-field input {
+  transition: var(--transition-interactive);
 }
 
 body {
@@ -256,12 +300,15 @@ h3 {
   border-radius: var(--radius);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .button:hover:not(:disabled) {
   background: rgba(0, 240, 255, 0.14);
   border-color: rgba(0, 240, 255, 0.4);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .button:disabled {
@@ -326,7 +373,6 @@ h3 {
   border: 2px dashed rgba(0, 240, 255, 0.3);
   border-radius: var(--radius);
   text-align: center;
-  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .dropzone.is-dragging {
@@ -780,8 +826,8 @@ h3 {
   background: var(--color-violet);
 }
 
-.dot.tone-hybrid {
-  background: var(--gradient-hybrid);
+.dot.tone-mixed {
+  background: var(--gradient-mixed);
 }
 
 .badge {
@@ -806,9 +852,9 @@ h3 {
   background: rgba(123, 47, 247, 0.12);
 }
 
-.badge.tone-hybrid {
+.badge.tone-mixed {
   color: var(--color-bg-base);
-  background: var(--gradient-hybrid);
+  background: var(--gradient-mixed);
 }
 
 .badge.tone-none {
@@ -955,7 +1001,6 @@ h3 {
   border-radius: var(--radius);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
 }
 
 .genre-card:hover {
@@ -1084,16 +1129,9 @@ tr.is-new > * {
   padding: 0.15rem 0.3rem;
 }
 
-.attack-editor .cell-button,
-.hybrid-part .cell-button {
+.attack-editor .cell-button {
   min-width: 3rem;
   text-align: right;
-}
-
-.hybrid-part {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .row-actions {
@@ -1163,10 +1201,6 @@ tr.is-new > * {
 
 .field-title {
   font-weight: 600;
-}
-
-.hybrid-card {
-  border-image: var(--gradient-hybrid) 1;
 }
 
 .exposure summary {
@@ -1502,7 +1536,7 @@ tr.is-new > * {
   background: rgba(123, 47, 247, 0.16);
 }
 
-.stat-code.tone-hybrid {
+.stat-code.tone-mixed {
   color: #d6c8ff;
   background: linear-gradient(135deg, rgba(0, 240, 255, 0.16), rgba(123, 47, 247, 0.24));
 }
@@ -1521,7 +1555,7 @@ tr.is-new > * {
   color: #b48cff;
 }
 
-.value.tone-hybrid {
+.value.tone-mixed {
   color: #d6c8ff;
 }
 
@@ -1551,8 +1585,8 @@ tr.is-new > * {
   background: rgba(123, 47, 247, 0.1);
 }
 
-.editor-table thead .group-head.tone-hybrid {
-  border-image: var(--gradient-hybrid) 1;
+.editor-table thead .group-head.tone-mixed {
+  border-image: var(--gradient-mixed) 1;
   border-top-width: 3px;
   border-top-style: solid;
   background: linear-gradient(135deg, rgba(0, 240, 255, 0.06), rgba(123, 47, 247, 0.1));
@@ -1634,8 +1668,8 @@ tr.is-new > * {
   background: var(--color-violet);
 }
 
-.bar-damage.tone-hybrid {
-  background: var(--gradient-hybrid);
+.bar-damage.tone-mixed {
+  background: var(--gradient-mixed);
 }
 
 .bar-legend {
@@ -1672,7 +1706,6 @@ tr.is-new > * {
   text-decoration: none;
   border-radius: 999px;
   padding: 0.35rem 0.9rem;
-  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .header-link {
@@ -1720,7 +1753,7 @@ tr.is-new > * {
 }
 
 .gradient-text {
-  background: var(--gradient-hybrid);
+  background: var(--gradient-mixed);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1891,9 +1924,13 @@ tr.is-new > * {
   box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.05);
 }
 
-.cell:hover {
-  outline: 2px solid var(--color-cyan);
+.cell {
+  outline: 2px solid transparent;
   outline-offset: -2px;
+}
+
+.cell:hover {
+  outline-color: var(--color-cyan);
 }
 
 .duel-table th.hl {
@@ -2180,4 +2217,197 @@ tr.is-new > * {
 .stack,
 .workspace {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---------- Complements and armor coverage ---------- */
+
+/* Two-option switch (Base / With complements); the radio stays usable with the keyboard. */
+.segmented {
+  display: inline-flex;
+  align-self: end;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.segmented label {
+  position: relative;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.segmented label + label {
+  border-left: 1px solid var(--color-border);
+}
+
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.segmented label:hover {
+  color: var(--color-text);
+  background: rgba(0, 240, 255, 0.06);
+}
+
+.segmented label.is-active {
+  color: var(--color-bg-base);
+  background: var(--color-cyan);
+  font-weight: 600;
+}
+
+.segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: -2px;
+}
+
+.cell-flip {
+  margin-left: 0.3em;
+  font-size: 0.7em;
+  color: var(--color-warning);
+}
+
+.cell.flipped {
+  box-shadow: inset 0 -2px 0 var(--color-warning);
+}
+
+.loadout {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: rgba(0, 240, 255, 0.04);
+}
+
+.bonus-sum {
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+}
+
+.bonus-name {
+  color: var(--color-warning);
+}
+
+.coverage {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-bottom: var(--space-4);
+}
+
+.coverage-table {
+  width: auto;
+}
+
+.coverage-table td {
+  padding: var(--space-1) var(--space-2);
+}
+
+.percent-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.percent-field input {
+  width: 4.5rem;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+}
+
+.percent-field input:hover {
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.complement-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.complement-group {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-strong);
+}
+
+.complement-head h3 {
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.complement-list {
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* Name and status on the first line, bonuses below: nothing wraps awkwardly in narrow cards. */
+.complement-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name status'
+    'bonus bonus';
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  transition: var(--transition-interactive);
+}
+
+.complement-item.is-off {
+  opacity: 0.55;
+}
+
+.complement-item > .check-field {
+  grid-area: name;
+}
+
+.complement-item > .bonus-list {
+  grid-area: bonus;
+  padding-left: 1.6rem;
+}
+
+.complement-item > :last-child {
+  grid-area: status;
+}
+
+.complement-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.complement-name {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.bonus-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.bonus-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }

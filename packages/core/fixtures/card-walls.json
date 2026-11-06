@@ -21,7 +21,6 @@
       "def": {
         "combat": 1
       },
-      "hybridDef": {},
       "tags": {},
       "stats": {},
       "extra": {},
@@ -37,7 +36,6 @@
         "combat": 4,
         "spell": 2
       },
-      "hybridDef": {},
       "tags": {},
       "stats": {},
       "extra": {},
@@ -50,7 +48,6 @@
         "spell": 5
       },
       "def": {},
-      "hybridDef": {},
       "tags": {},
       "stats": {},
       "extra": {},
@@ -65,7 +62,6 @@
       "def": {
         "combat": 0
       },
-      "hybridDef": {},
       "tags": {},
       "stats": {},
       "extra": {}

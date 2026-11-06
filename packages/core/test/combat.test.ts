@@ -3,20 +3,20 @@ import { attackType, damageBreakdown, hitsToDefeat } from '../src';
 import { channels, entity } from './helpers';
 
 describe('attackType', () => {
-  it('tells single-channel, hybrid and harmless entities apart', () => {
+  it('tells single-channel, mixed and harmless entities apart', () => {
     expect(attackType(entity('a', { atk: { '1': 10, '2': 0 } }))).toBe('channel');
-    expect(attackType(entity('h', { hybridAtk: { '1': 5, '2': 5 } }))).toBe('hybrid');
+    expect(attackType(entity('m', { atk: { '1': 5, '2': 5 } }))).toBe('mixed');
     expect(attackType(entity('w', { atk: { '1': 0 } }))).toBe('none');
   });
 });
 
 describe('damageBreakdown', () => {
-  it('subtracts the defense of the same channel only', () => {
+  it('subtracts the armor of the same channel only by default', () => {
     const attacker = entity('a', { atk: { '1': 55, '2': 0 } });
     const defender = entity('d', { def: { '1': 48, '2': 200 } });
     expect(damageBreakdown(attacker, defender, channels)).toEqual({
       rows: [
-        { channel: '1', source: 'channel', attack: 55, defense: 48, hybridDefense: 0, damage: 7, fullDamage: false },
+        { channel: '1', attack: 55, defense: 48, armor: [{ armor: '1', value: 48, percent: 100 }], damage: 7, fullDamage: false },
       ],
       attack: 55,
       blocked: 48,
@@ -24,36 +24,29 @@ describe('damageBreakdown', () => {
     });
   });
 
-  it('never goes below 0 and marks undefended attacks as full damage', () => {
+  it('never goes below 0 and marks uncovered attacks as full damage', () => {
     const attacker = entity('a', { atk: { '2': 20 } });
     expect(damageBreakdown(attacker, entity('wall', { def: { '2': 50 } }), channels).damage).toBe(0);
-    const open = damageBreakdown(attacker, entity('open'), channels);
-    expect(open.rows[0]).toMatchObject({ damage: 20, fullDamage: true });
+    const open = damageBreakdown(attacker, entity('open', { def: { '1': 40 } }), channels);
+    expect(open.rows[0]).toMatchObject({ damage: 20, fullDamage: true, armor: [] });
     expect(open.blocked).toBe(0);
   });
 
-  it('ignores hybrid armor against single-channel attacks', () => {
-    const attacker = entity('a', { atk: { '1': 30 } });
-    const defender = entity('d', { def: { '1': 10 }, hybridDef: { '1': 15 } });
-    expect(damageBreakdown(attacker, defender, channels).rows[0]).toMatchObject({ hybridDefense: 0, damage: 20 });
-  });
-
-  it('hits both channels with a hybrid attack, against base defense plus hybrid armor', () => {
-    const attacker = entity('h', { hybridAtk: { '1': 30, '2': 25 } });
-    const defender = entity('d', { def: { '1': 20, '2': 0 }, hybridDef: { '1': 10, '2': 5 } });
+  it('adds both channels of a mixed attack, each against its own armor', () => {
+    const attacker = entity('m', { atk: { '1': 30, '2': 25 } });
+    const defender = entity('d', { def: { '1': 20, '2': 5 } });
     const result = damageBreakdown(attacker, defender, channels);
-    expect(result.rows).toEqual([
-      { channel: '1', source: 'hybrid', attack: 30, defense: 20, hybridDefense: 10, damage: 0, fullDamage: false },
-      { channel: '2', source: 'hybrid', attack: 25, defense: 0, hybridDefense: 5, damage: 20, fullDamage: false },
-    ]);
-    expect(result).toMatchObject({ attack: 55, blocked: 35, damage: 20 });
+    expect(result.rows.map((row) => row.damage)).toEqual([10, 20]);
+    expect(result).toMatchObject({ attack: 55, blocked: 25, damage: 30 });
   });
 
-  it('treats a missing hybrid value as 0 and reports no full damage for a 0 attack', () => {
-    const attacker = entity('h', { hybridAtk: { '1': 12 } });
-    const result = damageBreakdown(attacker, entity('d'), channels);
-    expect(result.rows[1]).toMatchObject({ attack: 0, damage: 0, fullDamage: false });
-    expect(result.rows[0]).toMatchObject({ damage: 12, fullDamage: true });
+  it('applies the armor coverage, rounding the defense down', () => {
+    // The armor of channel 1 also stops 30% of channel 2: 25 * 30% = 7.5 -> 7.
+    const attacker = entity('a', { atk: { '2': 40 } });
+    const defender = entity('d', { def: { '1': 25, '2': 0 } });
+    const row = damageBreakdown(attacker, defender, channels, { '1': { '2': 30 } }).rows[0];
+    expect(row).toMatchObject({ defense: 7, damage: 33, fullDamage: false });
+    expect(row?.armor).toEqual([{ armor: '1', value: 25, percent: 30 }]);
   });
 
   it('deals nothing when the attacker has no attack', () => {

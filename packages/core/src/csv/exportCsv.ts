@@ -2,12 +2,16 @@
  * @file CSV export that keeps the source file's layout and round-trips through the importer.
  */
 
-import type { Channel, Entity } from '../types';
-import { classifyHeader, HYBRID, headerFor } from './columns';
+import { isDefaultCoverage, resolveCoverage } from '../coverage';
+import type { ArmorCoverage, Channel, Complement, Entity } from '../types';
+import { classifyHeader, headerFor, type ColumnRole } from './columns';
 import { labelFor, type CsvLayout } from './importEntities';
 
 /** Byte order mark: makes Excel read the file as UTF-8 so accents survive. */
 const BOM = '﻿';
+
+/** Channel names that would be read as columns of older templates, so a channel never takes them. */
+const RESERVED_CHANNEL_NAMES = new Set(['hybrid']);
 
 /** Column-safe version of a display name: lower case, no separators or quotes. */
 function slugify(label: string): string {
@@ -22,7 +26,7 @@ function slugify(label: string): string {
 function preferredName(channel: Channel): string {
   if (channel.label === labelFor(channel.key)) return channel.key;
   const slug = slugify(channel.label);
-  return slug === '' || slug === HYBRID ? channel.key : slug;
+  return slug === '' || RESERVED_CHANNEL_NAMES.has(slug) ? channel.key : slug;
 }
 
 /**
@@ -47,50 +51,80 @@ function numberCell(value: number | undefined): string {
   return value === undefined ? '' : String(value);
 }
 
+/** One output column: its header, what it means and, if it came from the file, its position there. */
+interface OutputColumn {
+  header: string;
+  role: ColumnRole | undefined;
+  /** Index in the source file, used to write back kept cells. Undefined for added columns. */
+  source: number | undefined;
+}
+
+/**
+ * Columns of the export: the source file's columns, plus `kind` (after `id`) and `class`
+ * (after `name`) when the export needs them and the file did not have them.
+ */
+function outputColumns(layout: CsvLayout, needsKind: boolean, needsClass: boolean): OutputColumn[] {
+  const seen = new Set<string>();
+  const columns: OutputColumn[] = layout.headers.map((header, index) => {
+    const canonical = header.toLowerCase();
+    const duplicate = header === '' || seen.has(canonical);
+    seen.add(canonical);
+    return { header, role: duplicate ? undefined : classifyHeader(canonical), source: index };
+  });
+  const insertAfter = (kind: 'id' | 'name', header: 'kind' | 'class') => {
+    const at = columns.findIndex(({ role }) => role?.kind === kind);
+    columns.splice(at + 1, 0, { header, role: { kind: header }, source: undefined });
+  };
+  if (needsKind && !columns.some(({ role }) => role?.kind === 'kind')) insertAfter('id', 'kind');
+  if (needsClass && !columns.some(({ role }) => role?.kind === 'class')) insertAfter('name', 'class');
+  return columns;
+}
+
 /**
  * Writes the catalog back as CSV, keeping the source file's columns, order and separator.
- * Channel columns take the channel's current display name. Columns Métrix does not analyze
- * are written back exactly as they were imported. Importing the result gives the same catalog.
+ *
+ * - Units come first, then complements, then one `rule` row per armor when the coverage
+ *   differs from the default (each armor stops only its own channel).
+ * - Channel columns take the channel's current display name. Columns Métrix does not analyze
+ *   are written back exactly as they were imported.
+ * - Importing the result gives the same catalog.
  */
-export function exportCsv(layout: CsvLayout, channels: readonly Channel[], entities: readonly Entity[]): string {
-  const { delimiter, headers } = layout;
+export function exportCsv(
+  layout: CsvLayout,
+  channels: readonly Channel[],
+  entities: readonly Entity[],
+  complements: readonly Complement[] = [],
+  coverage: ArmorCoverage = {},
+): string {
+  const { delimiter } = layout;
   const names = new Map(channels.map((channel) => [channel.key, channelColumnName(channel, channels)]));
   const channelName = (key: string) => names.get(key) ?? key;
-  const seen = new Set<string>();
-  const roles = headers.map((header) => {
-    const canonical = header.toLowerCase();
-    if (header === '' || seen.has(canonical)) return undefined;
-    seen.add(canonical);
-    return classifyHeader(canonical);
-  });
+  const writeRules = !isDefaultCoverage(channels, coverage);
+  const columns = outputColumns(layout, complements.length > 0 || writeRules, complements.length > 0);
 
-  const headerLine = headers.map((header, index) => {
-    const role = roles[index];
-    return quote(role ? headerFor(role, header, channelName) : header, delimiter);
-  });
+  const headerLine = columns.map(({ header, role }) =>
+    quote(role ? headerFor(role, header, channelName) : header, delimiter),
+  );
 
-  const rows = entities.map((entity) =>
-    headers.map((_header, index) => {
-      const role = roles[index];
-      const kept = entity.extra[String(index)];
+  const unitRows = entities.map((entity) =>
+    columns.map(({ role, source }) => {
+      const kept = source === undefined ? undefined : entity.extra[String(source)];
       if (kept !== undefined || !role) return quote(kept ?? '', delimiter);
       switch (role.kind) {
         case 'id':
         case 'name':
           return quote(entity[role.kind], delimiter);
-        case 'category':
-          return quote(entity.category ?? '', delimiter);
+        case 'kind':
+          return 'unit';
+        case 'character':
+        case 'class':
+          return quote(entity[role.kind] ?? '', delimiter);
         case 'cost':
         case 'hp':
           return numberCell(entity[role.kind]);
         case 'atk':
-          return entity.hybridAtk ? '0' : numberCell(entity.atk[role.channel] ?? 0);
         case 'def':
-          return numberCell(entity.def[role.channel] ?? 0);
-        case 'hybridAtk':
-          return numberCell(entity.hybridAtk?.[role.channel]);
-        case 'hybridDef':
-          return numberCell(entity.hybridDef[role.channel]);
+          return numberCell(entity[role.kind][role.channel] ?? 0);
         case 'tag':
           return quote(entity.tags[role.key] ?? '', delimiter);
         case 'stat':
@@ -101,5 +135,49 @@ export function exportCsv(layout: CsvLayout, channels: readonly Channel[], entit
     }),
   );
 
-  return BOM + [headerLine, ...rows].map((cells) => cells.join(delimiter)).join('\r\n') + '\r\n';
+  const complementRows = complements.map((complement) =>
+    columns.map(({ role, source }) => {
+      const kept = source === undefined ? undefined : complement.extra[String(source)];
+      if (kept !== undefined || !role) return quote(kept ?? '', delimiter);
+      switch (role.kind) {
+        case 'id':
+        case 'name':
+        case 'class':
+          return quote(complement[role.kind], delimiter);
+        case 'kind':
+          return 'complement';
+        case 'atk':
+        case 'def':
+          return numberCell(complement[role.kind][role.channel]);
+        default:
+          return '';
+      }
+    }),
+  );
+
+  const resolved = resolveCoverage(channels, coverage);
+  const ruleRows = writeRules
+    ? channels.map((armor) =>
+        columns.map(({ role }) => {
+          switch (role?.kind) {
+            case 'id':
+              return quote(channelName(armor.key), delimiter);
+            case 'kind':
+              return 'rule';
+            case 'name':
+              return quote(`${armor.label} armor`, delimiter);
+            case 'def':
+              return numberCell(resolved[armor.key]?.[role.channel]);
+            default:
+              return '';
+          }
+        }),
+      )
+    : [];
+
+  return (
+    BOM +
+    [headerLine, ...unitRows, ...complementRows, ...ruleRows].map((cells) => cells.join(delimiter)).join('\r\n') +
+    '\r\n'
+  );
 }

@@ -69,6 +69,16 @@ describe('metricValue', () => {
   });
 });
 
+describe('armor coverage in matchups', () => {
+  it('changes both directions of a duel', () => {
+    const mage = entity('mage', { hp: 100, atk: { '2': 40 } });
+    const knight = entity('knight', { hp: 100, atk: { '1': 20 }, def: { '1': 50 } });
+    expect(matchup(mage, knight, channels).forward.damage).toBe(40);
+    expect(matchup(mage, knight, channels, { '1': { '2': 50 } }).forward.damage).toBe(15);
+    expect(matchupMatrix([mage, knight], channels, { '1': { '2': 50 } })[0]?.[1]?.forward.damage).toBe(15);
+  });
+});
+
 describe('matchupMatrix', () => {
   it('pairs every attacker (rows) with every defender (columns) in input order', () => {
     const grid = matchupMatrix([strong, weak], channels);

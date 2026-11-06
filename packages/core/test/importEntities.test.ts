@@ -13,26 +13,32 @@ describe('importEntities', () => {
     expect(result.ok).toBe(true);
     expect(result.issues).toEqual([]);
     expect(result.channels).toEqual([
-      { key: '1', label: 'Channel 1' },
-      { key: '2', label: 'Channel 2' },
+      { key: 'channel1', label: 'Channel 1' },
+      { key: 'channel2', label: 'Channel 2' },
     ]);
-    expect(result.entities).toHaveLength(6);
-    const [heavy, , , hybrid, , warden] = result.entities;
-    expect(heavy).toEqual({
-      id: 'heavy',
-      name: 'Heavy Unit',
-      category: 'unit',
-      cost: 48,
-      hp: 620,
-      atk: { '1': 34, '2': 0 },
-      def: { '1': 32, '2': 8 },
-      hybridDef: {},
-      tags: { role: 'tank' },
+    expect(result.entities).toHaveLength(8);
+    expect(result.entities[0]).toEqual({
+      id: 'vanguard',
+      name: 'Iron Vanguard',
+      character: 'Aria',
+      class: 'tank',
+      cost: 45,
+      hp: 600,
+      atk: { channel1: 30, channel2: 0 },
+      def: { channel1: 30, channel2: 10 },
+      tags: { role: 'frontline' },
       stats: {},
       extra: {},
     });
-    expect(hybrid?.hybridAtk).toEqual({ '1': 30, '2': 34 });
-    expect(warden?.hybridDef).toEqual({ '1': 10, '2': 10 });
+    expect(result.complements[0]).toEqual({
+      id: 'shield',
+      name: 'Tower Shield',
+      class: 'tank',
+      atk: {},
+      def: { channel1: 2, channel2: 10 },
+      extra: {},
+    });
+    expect(result.coverage).toEqual({});
     expect(result.layout).toEqual({ delimiter: ',', headers: CSV_TEMPLATE.split('\n')[0]?.split(',') });
   });
 
@@ -46,14 +52,13 @@ describe('importEntities', () => {
   });
 
   it('fills empty attack and defense cells with 0 and warns about missing hp and cost', () => {
-    const result = importEntities('id,name,cost,hp,atk:1,def:1,def:hybrid:1,category,tag:role\na,A,,,,,,,');
+    const result = importEntities('id,name,character,class,cost,hp,atk:1,def:1,tag:role\na,A,,,,,,,');
     expect(result.ok).toBe(true);
     expect(result.entities[0]).toEqual({
       id: 'a',
       name: 'A',
       atk: { '1': 0 },
       def: { '1': 0 },
-      hybridDef: {},
       tags: {},
       stats: {},
       extra: {},
@@ -85,11 +90,13 @@ describe('importEntities', () => {
     expect(result.channels).toEqual([]);
   });
 
-  it('rejects reserved hybrid column names', () => {
-    for (const header of ['atk:hybrid', 'def:hybrid', 'atk:hybrid:', 'def:hybrid:hybrid']) {
+  it('rejects retired columns and explains how to move their values', () => {
+    for (const header of ['atk:hybrid', 'def:hybrid', 'atk:hybrid:1', 'def:hybrid:2']) {
       const result = importEntities(`id,name,atk:1,atk:2,${header}\na,A,0,0,1`);
-      expect(issue(result, 'reserved-column')?.column).toBe(header);
+      expect(issue(result, 'retired-column')).toMatchObject({ severity: 'error', column: header });
+      expect(issue(result, 'retired-column')?.message).toContain('both channels');
     }
+    expect(issue(importEntities('id,name,Category\na,A,unit'), 'retired-column')?.message).toContain('"class"');
   });
 
   it('allows two channels at most', () => {
@@ -98,30 +105,68 @@ describe('importEntities', () => {
     expect(issue(result, 'too-many-channels')?.message).toContain('1, 2, 3');
   });
 
-  it('needs two channels and a column per channel for hybrid attacks', () => {
-    expect(codes(importEntities('id,name,atk:hybrid:1\na,A,1'))).toEqual(['hybrid-needs-two-channels']);
-    const result = importEntities('id,name,atk:1,def:2,atk:hybrid:1\na,A,0,0,1');
-    expect(issue(result, 'missing-hybrid-column')?.column).toBe('atk:hybrid:2');
-  });
-
-  it('reads hybrid attacks and hybrid armor', () => {
-    const result = importEntities(
-      'id,name,atk:1,atk:2,atk:hybrid:1,atk:hybrid:2,def:hybrid:2\nh,H,0,0,30,0,\nd,D,5,0,,,4',
-    );
+  it('accepts attacks on both channels (mixed attack)', () => {
+    const result = importEntities('id,name,atk:1,atk:2\nm,Mixed,30,14');
     expect(result.ok).toBe(true);
-    expect(result.entities[0]?.hybridAtk).toEqual({ '1': 30, '2': 0 });
-    expect(result.entities[1]).toMatchObject({ atk: { '1': 5, '2': 0 }, hybridDef: { '2': 4 } });
-    expect(result.entities[1]?.hybridAtk).toBeUndefined();
+    expect(result.entities[0]?.atk).toEqual({ '1': 30, '2': 14 });
   });
 
-  it('rejects a hybrid attack with only one value', () => {
-    const result = importEntities('id,name,atk:hybrid:1,atk:hybrid:2\nh,H,30,');
-    expect(issue(result, 'incomplete-hybrid')?.lines).toEqual([2]);
+  it('reads the kind of each row, unit by default', () => {
+    const result = importEntities('id,kind,name,class,atk:1,def:1\na,,A,tank,1,1\nb,UNIT,B,tank,2,2\nc,complement,C,tank,3,');
+    expect(result.ok).toBe(true);
+    expect(result.entities.map((entity) => entity.id)).toEqual(['a', 'b']);
+    expect(result.complements).toEqual([{ id: 'c', name: 'C', class: 'tank', atk: { '1': 3 }, def: {}, extra: {} }]);
+    expect(issue(importEntities('id,kind,name\na,boss,A'), 'unknown-kind')).toMatchObject({ column: 'kind', lines: [2] });
   });
 
-  it('allows one kind of damage per entity', () => {
-    const result = importEntities('id,name,atk:1,atk:2,atk:hybrid:1,atk:hybrid:2\na,A,5,5,,\nb,B,5,0,1,1');
-    expect(issue(result, 'mixed-attack')?.lines).toEqual([2, 3]);
+  it('checks complements: a class, only bonuses, never negative', () => {
+    const header = 'id,kind,name,character,class,cost,hp,atk:1,def:1,tag:role,range,notes';
+    const result = importEntities(
+      `${header}\nt,unit,T,,tank,1,10,1,1,,,note\nnoclass,complement,No class,,,,,1,,,,\nchar,complement,Char,Aria,tank,,,1,,,,\nhp,complement,HP,,tank,,5,,,,,\nneg,complement,Neg,,tank,,,-1,,,,\nok,complement,Ok,,tank,,,,4,,,kept`,
+    );
+    expect(issue(result, 'missing-class')).toMatchObject({ column: 'class', lines: [3] });
+    expect(result.issues.filter((entry) => entry.code === 'complement-field').map((entry) => [entry.column, entry.lines])).toEqual([
+      ['character', [4]],
+      ['hp', [5]],
+    ]);
+    expect(issue(result, 'not-a-whole-number')).toMatchObject({ column: 'atk:1', lines: [6] });
+    const valid = importEntities(`${header}\nt,unit,T,,tank,1,10,1,1,,,note\nok,complement,Ok,,tank,,,,4,,,kept`);
+    expect(valid.complements[0]).toEqual({ id: 'ok', name: 'Ok', class: 'tank', atk: {}, def: { '1': 4 }, extra: { '11': 'kept' } });
+  });
+
+  it('warns about complements for a class no unit has', () => {
+    const result = importEntities('id,kind,name,class,atk:1\na,unit,A,tank,1\nx,complement,X,mage,2');
+    expect(result.ok).toBe(true);
+    expect(issue(result, 'unused-complement')).toMatchObject({ severity: 'warning', column: 'class' });
+    expect(issue(result, 'unused-complement')?.message).toContain('"mage"');
+  });
+
+  it('reads the armor coverage from rule rows', () => {
+    const result = importEntities('id,kind,name,atk:physical,def:physical,atk:magic,def:magic\na,unit,A,1,1,1,1\nphysical,rule,Physical armor,,100,,20\nMagic,rule,Magic armor,,,,90');
+    expect(result.ok).toBe(true);
+    expect(result.coverage).toEqual({ physical: { physical: 100, magic: 20 }, magic: { magic: 90 } });
+    expect(result.entities).toHaveLength(1);
+  });
+
+  it('checks rule rows: a channel id, a name, def: percentages only, at most 100', () => {
+    const header = 'id,kind,name,class,atk:1,def:1,def:2';
+    const result = importEntities(
+      `${header}\nfire,rule,Fire,,,50,\n1,rule,,,,50,\n2,rule,Two,mage,,,\n1x,rule,X,,4,,\n,rule,No id,,,,\n2b,rule,Over,,,,`.replace('2b,rule,Over,,,,', '2,rule,Over,,,,101'),
+    );
+    expect(issue(result, 'rule-unknown-channel')?.lines).toEqual([2, 5]);
+    expect(issue(result, 'missing-name')?.lines).toEqual([3]);
+    expect(result.issues.filter((entry) => entry.code === 'rule-field').map((entry) => entry.column)).toEqual(['class', 'atk:1']);
+    expect(issue(result, 'missing-id')?.lines).toEqual([6]);
+    expect(issue(result, 'coverage-over-100')).toMatchObject({ column: 'def:2', lines: [7] });
+    expect(issue(result, 'duplicate-id')?.lines).toEqual([7]);
+    expect(issue(importEntities('id,kind,name,def:1\n1,rule,One,-5'), 'not-a-whole-number')?.column).toBe('def:1');
+    // Columns Métrix does not analyze are not part of a rule.
+    const kept = importEntities('id,kind,name,def:1,notes\na,unit,A,1,text\n1,rule,One,50,ignored');
+    expect(kept.coverage).toEqual({ '1': { '1': 50 } });
+  });
+
+  it('reports short rows even when they miss the kind cell', () => {
+    expect(codes(importEntities('id,name,range,kind\na,A'))).toEqual(['row-too-short']);
   });
 
   it('accepts whole numbers of 0 or more only', () => {
@@ -145,8 +190,8 @@ describe('importEntities', () => {
   });
 
   it('rejects rows longer than the header and explains quoting for the detected separator', () => {
-    expect(issue(importEntities('id,name\na,A,extra'), 'row-too-long')?.message).toContain('"Ranged Unit, Elite"');
-    expect(issue(importEntities('id\tname\na\tA\textra'), 'row-too-long')?.message).toContain('Ranged Unit\t Elite');
+    expect(issue(importEntities('id,name\na,A,extra'), 'row-too-long')?.message).toContain('"Iron Vanguard, Elite"');
+    expect(issue(importEntities('id\tname\na\tA\textra'), 'row-too-long')?.message).toContain('Iron Vanguard\t Elite');
     expect(issue(importEntities('id;name;hp\na;A'), 'row-too-short')?.message).toContain('semicolons');
     expect(codes(importEntities('id,name,range\na,A'))).toEqual(['row-too-short']);
   });
@@ -192,12 +237,14 @@ describe('importEntities', () => {
   });
 
   it('imports 5,000 entities well under the 2 s budget', () => {
-    const rows = ['id,name,cost,hp,atk:1,def:1,atk:2,def:2,atk:hybrid:1,atk:hybrid:2,def:hybrid:1,def:hybrid:2'];
-    for (let i = 0; i < 5000; i++) rows.push(`e${i},Entity ${i},${i},500,50,30,0,30,,,5,5`);
+    const rows = ['id,kind,name,character,class,cost,hp,atk:1,def:1,atk:2,def:2,tag:role'];
+    for (let i = 0; i < 5000; i++) rows.push(`e${i},unit,Entity ${i},Name ${i},class${i % 6},${i},500,50,30,10,30,front`);
+    for (let i = 0; i < 6; i++) rows.push(`c${i},complement,Item ${i},,class${i},,,4,2,,,`);
     const start = performance.now();
     const result = importEntities(rows.join('\n'));
     const elapsed = performance.now() - start;
     expect(result.entities).toHaveLength(5000);
+    expect(result.complements).toHaveLength(6);
     expect(elapsed).toBeLessThan(500);
   });
 });

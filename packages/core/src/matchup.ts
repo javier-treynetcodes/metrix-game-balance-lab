@@ -3,7 +3,7 @@
  */
 
 import { damageBreakdown, hitsToDefeat, type DamageBreakdown, type HitsToDefeat } from './combat';
-import type { Channel, Entity } from './types';
+import type { ArmorCoverage, Channel, Entity } from './types';
 
 /** Ways to compare two entities. Every one is a whole number. */
 export type Metric = 'hits' | 'damage' | 'trade' | 'blocked';
@@ -31,10 +31,16 @@ export interface Matchup {
 /**
  * Computes everything about one pair: the damage breakdown in both directions, the hits each
  * side needs to defeat the other and the trade. All metrics and winners are read from this.
+ * Pass the entities already equipped when complements should count.
  */
-export function matchup(attacker: Entity, defender: Entity, channels: readonly Channel[]): Matchup {
-  const forward = damageBreakdown(attacker, defender, channels);
-  const backward = damageBreakdown(defender, attacker, channels);
+export function matchup(
+  attacker: Entity,
+  defender: Entity,
+  channels: readonly Channel[],
+  coverage: ArmorCoverage = {},
+): Matchup {
+  const forward = damageBreakdown(attacker, defender, channels, coverage);
+  const backward = damageBreakdown(defender, attacker, channels, coverage);
   return {
     attackerId: attacker.id,
     defenderId: defender.id,
@@ -47,8 +53,12 @@ export function matchup(attacker: Entity, defender: Entity, channels: readonly C
 }
 
 /** Every entity against every other one: rows are attackers, columns are defenders, in input order. */
-export function matchupMatrix(entities: readonly Entity[], channels: readonly Channel[]): Matchup[][] {
-  return entities.map((attacker) => entities.map((defender) => matchup(attacker, defender, channels)));
+export function matchupMatrix(
+  entities: readonly Entity[],
+  channels: readonly Channel[],
+  coverage: ArmorCoverage = {},
+): Matchup[][] {
+  return entities.map((attacker) => entities.map((defender) => matchup(attacker, defender, channels, coverage)));
 }
 
 function compareHigher(forward: number, backward: number): Winner {

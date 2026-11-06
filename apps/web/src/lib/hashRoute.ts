@@ -3,9 +3,9 @@
  */
 
 /** Deep links: #catalog, #rules, #duels and #versus/<id A>/<id B>. */
-export type TabId = 'catalog' | 'rules' | 'duels' | 'versus';
+export type TabId = 'catalog' | 'rules' | 'complements' | 'duels' | 'versus';
 
-const TAB_IDS: readonly TabId[] = ['catalog', 'rules', 'duels', 'versus'];
+const TAB_IDS: readonly TabId[] = ['catalog', 'rules', 'complements', 'duels', 'versus'];
 
 /** Location inside the workspace: the open tab and, for Versus, the ids of both entities. */
 export interface Route {

@@ -14,9 +14,10 @@ import { readFlag, writeFlag } from '../../lib/storage';
 import { plural } from '../../lib/format';
 import { GENRES, genreProfile } from '../../lib/genres';
 import { catalogSchema } from '../../lib/schema';
-import { countChanges, type Catalog } from '../../state/catalog';
+import { activeComplements, changedCoverage, countChanges, type Catalog } from '../../state/catalog';
 import type { CatalogActions } from '../../state/useCatalog';
 import { CatalogEditor } from './CatalogEditor';
+import { Complements } from './Complements';
 import { DamageRules } from './DamageRules';
 import { DuelMatrix } from './DuelMatrix';
 import { GenrePicker } from './GenrePicker';
@@ -27,6 +28,7 @@ import { Versus } from './Versus';
 const TABS: readonly { id: TabId; label: string }[] = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'rules', label: 'Damage rules' },
+  { id: 'complements', label: 'Complements' },
   { id: 'duels', label: 'Duels' },
   { id: 'versus', label: 'Versus' },
 ];
@@ -51,7 +53,7 @@ function exportFileName(source: string): string {
 
 /**
  * Everything shown once a catalog is loaded: the genre picker (first time only), the header
- * with undo/redo, export and the "..." menu, the quick tour and the four tabs.
+ * with undo/redo, export and the "..." menu, the quick tour and the five tabs.
  *
  * It also owns cross-tab concerns: the Versus pair, the deep link in the address bar,
  * keyboard shortcuts for undo/redo, confirmations before destructive actions and the
@@ -66,7 +68,8 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
     setVisited((current) => (current.has(next) ? current : new Set([...current, next])));
   };
   const tabRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
-  const { rows, channels, warnings } = catalog;
+  const { rows, channels, warnings, coverage } = catalog;
+  const active = useMemo(() => activeComplements(catalog), [catalog]);
   const [confirm, setConfirm] = useState<'clear' | 'import' | null>(null);
   const [exported, setExported] = useState<string | null>(null);
   const [nudgeDismissed, setNudgeDismissed] = useState(() => readFlag(SPONSOR_NUDGE_DISMISSED));
@@ -139,7 +142,13 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
   const exportFile = () => {
     downloadText(
       exportFileName(catalog.source),
-      exportCsv(catalog.layout, channels, rows.map((row) => row.entity)),
+      exportCsv(
+        catalog.layout,
+        channels,
+        rows.map((row) => row.entity),
+        catalog.complements,
+        coverage,
+      ),
     );
     actions.markExported();
     setExported(exportFileName(catalog.source));
@@ -167,7 +176,9 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
         <div className="summary-main">
           <h1 id="catalog-title">{catalog.source}</h1>
           <p className="muted">
-            {plural(rows.length, 'entity', 'entities')} · imported {new Date(catalog.importedAt).toLocaleString()}
+            {plural(rows.length, 'entity', 'entities')}
+            {catalog.complements.length > 0 && ` · ${plural(catalog.complements.length, 'complement')}`} · imported{' '}
+            {new Date(catalog.importedAt).toLocaleString()}
           </p>
           <div className="summary-meta">
             <label className="genre-chip">
@@ -347,7 +358,24 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
             />
           )}
           {tab === 'rules' && (
-            <DamageRules channels={channels} entities={rows.map((row) => row.entity)} onRename={actions.renameChannel} />
+            <DamageRules
+              channels={channels}
+              coverage={coverage}
+              changedCoverage={changedCoverage(catalog)}
+              entities={rows.map((row) => row.entity)}
+              onRename={actions.renameChannel}
+              onSetCoverage={actions.setCoverage}
+              onResetCoverage={actions.resetCoverage}
+            />
+          )}
+          {tab === 'complements' && (
+            <Complements
+              channels={channels}
+              complements={catalog.complements}
+              inactive={catalog.inactiveComplements}
+              entities={rows.map((row) => row.entity)}
+              onToggle={actions.toggleComplement}
+            />
           )}
           {tab === 'duels' && (
             <>
@@ -357,6 +385,8 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
               <DuelMatrix
                 key={genre.id}
                 channels={channels}
+                coverage={coverage}
+                complements={active}
                 rows={rows}
                 genre={genre}
                 onOpen={(attacker, defender) => {
@@ -371,6 +401,8 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
               key={validPair.join('|')}
               rows={rows}
               channels={channels}
+              coverage={coverage}
+              complements={active}
               schema={schema}
               genre={genre}
               pair={validPair}

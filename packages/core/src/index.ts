@@ -3,11 +3,23 @@
  *
  * The engine is pure TypeScript with no DOM access and no side effects, so it can run in the
  * browser, in a Web Worker, in Node or in tests. Every function here is covered by tests and
- * the build fails below 100% coverage. Every game value is a whole number and damage only
- * uses additions and subtractions.
+ * the build fails below 100% coverage. Every game value is a whole number: attacks minus the
+ * armor that covers each channel, with percentages rounded down.
  */
 
-export type { AttackType, Channel, Entity, Genre } from './types';
+export type { ArmorCoverage, AttackType, Channel, Complement, Entity, Genre } from './types';
+export {
+  armorAgainst,
+  coverageValue,
+  defaultCoverageValue,
+  isCoveragePercent,
+  isDefaultCoverage,
+  MAX_COVERAGE,
+  resolveCoverage,
+  type ArmorAgainst,
+  type ArmorPart,
+} from './coverage';
+export { complementsFor, equipAll, withComplements } from './complements';
 export {
   attackType,
   damageBreakdown,
@@ -30,6 +42,7 @@ export {
 export {
   ENTITY_MESSAGES,
   isWholeNumber,
+  validateComplement,
   validateEntity,
   type EntityProblem,
   type EntityProblemCode,
@@ -51,7 +64,8 @@ export {
   type ImportIssue,
   type ImportIssueCode,
   type ImportResult,
+  type RowKind,
 } from './csv/importEntities';
 export { channelColumnName, exportCsv } from './csv/exportCsv';
-export { classifyHeader, type ColumnRole } from './csv/columns';
+export { classifyHeader, type ColumnRole, type RetiredColumn } from './csv/columns';
 export { CSV_TEMPLATE, CSV_TEMPLATE_FILE_NAME } from './csv/template';

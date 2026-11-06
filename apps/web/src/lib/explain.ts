@@ -2,8 +2,15 @@
  * @file Plain-language explanations of damage results, used by Versus and the walls list.
  */
 
-import type { Channel, DamageBreakdown } from '@metrix/core';
+import type { Channel, DamageBreakdown, DamageRow } from '@metrix/core';
 import { statCode } from './codes';
+
+/** "DEF 1 30 x 20 % + DEF 2 10": the armors behind a defense, with their share when it is not 100%. */
+export function armorText(row: DamageRow, channels: readonly Channel[]): string {
+  return row.armor
+    .map(({ armor, value, percent }) => `${statCode('def', channels, armor)} ${value}${percent === 100 ? '' : ` × ${percent} %`}`)
+    .join(' + ');
+}
 
 /** Plain-language reasons behind a damage breakdown. */
 export function damageReasons(
@@ -14,16 +21,12 @@ export function damageReasons(
 ): string[] {
   if (breakdown.attack === 0) return [`${attacker} has no attack, so it cannot damage ${defender}.`];
   return breakdown.rows.flatMap((row) => {
-    if (row.attack === 0) return [];
-    const attack = statCode(row.source === 'hybrid' ? 'hyb' : 'atk', channels, row.channel);
-    const defense = statCode('def', channels, row.channel);
+    const attack = statCode('atk', channels, row.channel);
     if (row.fullDamage) {
-      const armor = row.source === 'hybrid' ? ` or ${statCode('arm', channels, row.channel)}` : '';
-      return [`${defender} has no ${defense}${armor}, so ${attacker}'s ${attack} (${row.attack}) lands in full.`];
+      return [`No armor of ${defender} covers ${attack}, so ${attacker}'s ${attack} (${row.attack}) lands in full.`];
     }
     if (row.damage === 0) {
-      const armor = row.hybridDefense > 0 ? ` + ${statCode('arm', channels, row.channel)} ${row.hybridDefense}` : '';
-      return [`${defender}'s ${defense} ${row.defense}${armor} stops ${attacker}'s ${attack} (${row.attack}) completely.`];
+      return [`${defender}'s armor (${armorText(row, channels)} = ${row.defense}) stops ${attacker}'s ${attack} (${row.attack}) completely.`];
     }
     return [];
   });
@@ -33,11 +36,6 @@ export function damageReasons(
 export function wallReason(breakdown: DamageBreakdown, channels: readonly Channel[]): string {
   if (breakdown.attack === 0) return 'no attack';
   return breakdown.rows
-    .filter((row) => row.attack > 0)
-    .map((row) => {
-      const attack = statCode(row.source === 'hybrid' ? 'hyb' : 'atk', channels, row.channel);
-      const armor = row.hybridDefense > 0 ? ` + ${statCode('arm', channels, row.channel)} ${row.hybridDefense}` : '';
-      return `${attack} ${row.attack} vs ${statCode('def', channels, row.channel)} ${row.defense}${armor}`;
-    })
+    .map((row) => `${statCode('atk', channels, row.channel)} ${row.attack} vs armor ${row.defense}`)
     .join(', ');
 }

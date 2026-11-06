@@ -92,8 +92,9 @@ export function ImportPanel({ onImported, onCancel, legacyNotice = false }: Impo
 
       {legacyNotice && (
         <p className="legacy-notice">
-          Métrix now uses whole numbers, two damage channels and hybrid attacks. Your previous catalog was saved in the old
-          format: import your file again (or start from the new template) to keep working.
+          Métrix now supports classes, complements and armor coverage, and attacks on both channels replace hybrid
+          attacks. Your previous catalog was saved in the old format: import your file again (or start from the new
+          template) to keep working.
         </p>
       )}
 

@@ -5,53 +5,59 @@
 import type { Channel } from '@metrix/core';
 import { StatCode } from './StatCode';
 
-/** The damage rules in four short points and one worked example, all with whole numbers. */
+/** The damage rules in five short points and one worked example, all with whole numbers. */
 export function HowDamageWorks({ channels, open = false }: { channels: readonly Channel[]; open?: boolean }) {
   const [one, two] = channels;
   if (!one || !two) return null;
-  const code = (kind: 'atk' | 'def' | 'arm' | 'hyb', key: string) => <StatCode kind={kind} channels={channels} channelKey={key} />;
+  const code = (kind: 'atk' | 'def', key: string) => <StatCode kind={kind} channels={channels} channelKey={key} />;
   return (
     <details className="how-it-works" open={open}>
       <summary>How damage works</summary>
       <ol className="rules">
         <li>
-          <strong>One kind of attack per entity:</strong> {code('atk', one.key)}, {code('atk', two.key)} or hybrid (
-          {code('hyb', one.key)} + {code('hyb', two.key)}).
+          <strong>Attack on one or both channels:</strong> {code('atk', one.key)}, {code('atk', two.key)} or both at once
+          (a mixed attack). Each channel is worked out on its own and the results are added.
         </li>
         <li>
-          <strong>Each attack only meets the defense of its own channel:</strong> {code('atk', one.key)} −{' '}
-          {code('def', one.key)}, never below 0. {code('def', one.key)} does nothing against {code('atk', two.key)}.
+          <strong>Damage = attack − armor against it</strong>, never below 0.
         </li>
         <li>
-          <strong>No defense = full damage</strong> on that channel.
+          <strong>Armor coverage:</strong> by default {code('def', one.key)} only stops {code('atk', one.key)} and{' '}
+          {code('def', two.key)} only stops {code('atk', two.key)}. In the table below you can make an armor also stop a
+          share of the other channel.
         </li>
         <li>
-          <strong>Hybrid attacks hit both channels at once.</strong> Each part meets that channel&apos;s defense and also
-          the hybrid armor ({code('arm', one.key)}, {code('arm', two.key)}), which only works against hybrid attacks.
+          <strong>No armor against a channel = full damage</strong> on that channel.
+        </li>
+        <li>
+          <strong>Complements</strong> add attack or armor to every character of their class. Compare base values and
+          values with complements in Duels and Versus.
         </li>
       </ol>
       <div className="example">
-        <p className="muted small">Example: a hybrid attacker hits a defender</p>
+        <p className="muted small">
+          Example: a mixed attacker hits a defender whose {code('def', one.key)} also stops 20 % of {code('atk', two.key)}
+        </p>
         <table className="example-table">
           <tbody>
             <tr>
-              <th scope="row">{code('hyb', one.key)} 30</th>
+              <th scope="row">{code('atk', one.key)} 30</th>
               <td>
-                30 − {code('def', one.key)} 20 − {code('arm', one.key)} 10
+                30 − {code('def', one.key)} 20
               </td>
-              <td className="num">= 0</td>
+              <td className="num">= 10</td>
             </tr>
             <tr>
-              <th scope="row">{code('hyb', two.key)} 25</th>
+              <th scope="row">{code('atk', two.key)} 25</th>
               <td>
-                25 − {code('def', two.key)} 0 − {code('arm', two.key)} 5
+                25 − ({code('def', one.key)} 20 × 20 % + {code('def', two.key)} 5) = 25 − 9
               </td>
-              <td className="num">= 20</td>
+              <td className="num">= 16</td>
             </tr>
             <tr className="total">
               <th scope="row">Per hit</th>
-              <td>0 + 20</td>
-              <td className="num">= 20</td>
+              <td>10 + 16</td>
+              <td className="num">= 26</td>
             </tr>
           </tbody>
         </table>

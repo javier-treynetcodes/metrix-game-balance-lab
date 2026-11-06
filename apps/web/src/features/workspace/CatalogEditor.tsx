@@ -11,7 +11,7 @@ import { plural } from '../../lib/format';
 import { withKey } from '../../lib/record';
 import { parseField } from '../../lib/parseField';
 import { statCode } from '../../lib/codes';
-import { attackChoiceLabel, attackChoiceOf, blankEntity, withAttackValue, type CatalogSchema } from '../../lib/schema';
+import { blankEntity, type CatalogSchema } from '../../lib/schema';
 import { changedFields, type Catalog, type Row } from '../../state/catalog';
 import type { CatalogActions } from '../../state/useCatalog';
 
@@ -28,15 +28,17 @@ interface CatalogEditorProps {
 
 type SortKey = 'name' | 'cost' | 'hp';
 
+/** Optional text fields of an entity, edited as free text and removed when emptied. */
+type TextField = 'character' | 'class';
+
 /**
  * Editable catalog table.
  *
- * - Columns are grouped by channel (ATK and DEF side by side) and then hybrid (HYB and ARM).
- *   Only the columns of the imported file are shown: new columns are added through the template.
+ * - Columns are grouped by channel (ATK and DEF side by side). Only the columns of the imported
+ *   file are shown: new columns are added through the template.
+ * - An entity can attack on both channels at once (mixed attack): each ATK cell is independent.
  * - Every edit goes through `validateEntity`, the same rules as the import, and becomes one
  *   undo step. Invalid input stays in the cell with an explanation and is never saved.
- * - Typing an attack under another ATK or HYB column switches the entity's kind of attack,
- *   and a notice with Undo says so, because an entity deals only one kind of damage.
  */
 export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEditorProps) {
   const { channels, rows } = catalog;
@@ -50,7 +52,7 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
     const needle = query.trim().toLowerCase();
     const filtered = needle
       ? rows.filter(({ entity }) =>
-          [entity.id, entity.name, entity.category ?? '', ...Object.values(entity.tags)].some((text) =>
+          [entity.id, entity.name, entity.character ?? '', entity.class ?? '', ...Object.values(entity.tags)].some((text) =>
             text.toLowerCase().includes(needle),
           ),
         )
@@ -70,7 +72,7 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
 
   /** Validates and saves a new version of an entity; returns the problem to show, if any. */
   const save = (row: Row, next: Entity): string | null => {
-    const problem = validateEntity(next, channels)[0];
+    const problem = validateEntity(next)[0];
     if (problem) return problem.message;
     if (rows.some((other) => other.key !== row.key && other.entity.id === next.id)) {
       return `Id "${next.id}" is already used. Every id must be unique.`;
@@ -89,36 +91,26 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
       current?.key !== key ? { key, direction: 1 } : current.direction === 1 ? { key, direction: -1 } : null,
     );
 
-  // Columns grouped by channel: each channel's attack and defense side by side, then hybrid.
-  const atkKeys = schema.attackChoices.flatMap((choice) => (choice.startsWith('ch:') ? [choice.slice(3)] : []));
-  const channelGroups = channels
-    .map((channel) => ({ channel, atk: atkKeys.includes(channel.key), def: schema.defChannels.includes(channel.key) }))
-    .filter((group) => group.atk || group.def);
-  const hybridColumns = [
-    ...(schema.attackChoices.includes('hybrid') ? channels.map(({ key }) => ({ kind: 'hyb' as const, key })) : []),
-    ...schema.hybridDefChannels.map((key) => ({ kind: 'arm' as const, key })),
-  ];
-
-  /** Saves an attack value; typing an attack of another kind switches the entity to it. */
-  const saveAttack = (row: Row, kind: 'atk' | 'hyb', key: string, text: string) => {
-    const parsed = parseField(text);
-    if (!parsed.ok) return parsed.error;
-    const value = parsed.value ?? 0;
-    const { entity } = row;
-    if (kind === 'hyb' && !entity.hybridAtk && value === 0) return null;
-    const next = withAttackValue(entity, kind, key, value, channels);
-    const problem = save(row, next);
-    const before = attackChoiceOf(entity);
-    const after = attackChoiceOf(next);
-    if (!problem && before !== after) {
-      setNotice(
-        after === 'none'
-          ? `${entity.name} has no attack now.`
-          : `${entity.name} now deals ${attackChoiceLabel(after, channels)}${before === 'none' ? '' : ` instead of ${attackChoiceLabel(before, channels)}`}.`,
-      );
+  /** Saves a character or class: trimmed, and removed when emptied. */
+  const saveText = (row: Row, field: TextField, text: string) => {
+    const value = text.trim();
+    const next: Entity = { ...row.entity, [field]: value };
+    // An emptied field is removed, so an entity without class or character has no such key at all.
+    if (value === '') {
+      if (field === 'class') delete next.class;
+      else delete next.character;
     }
-    return problem;
+    return save(row, next);
   };
+
+  // Columns grouped by channel: each channel's attack and defense side by side.
+  const channelGroups = channels
+    .map((channel) => ({
+      channel,
+      atk: schema.atkChannels.includes(channel.key),
+      def: schema.defChannels.includes(channel.key),
+    }))
+    .filter((group) => group.atk || group.def);
 
   const sortHeader = (key: SortKey, label: string, numeric = false) => {
     const active = sort?.key === key;
@@ -144,7 +136,7 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
       <div className="toolbar">
         <label className="field">
           <span>Search</span>
-          <input type="search" value={query} placeholder="Name, id, category or tag" onChange={(event) => setQuery(event.target.value)} />
+          <input type="search" value={query} placeholder="Name, character, class or tag" onChange={(event) => setQuery(event.target.value)} />
         </label>
         <div className="toolbar-actions">
           <p className="muted" aria-live="polite">
@@ -158,9 +150,9 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
         </div>
       </div>
       <p className="muted small intro">
-        Click a value to edit it; Enter saves and moves down, Tab moves right. Whole numbers only. Each entity deals one kind of attack: type a value under another
-        ATK or HYB to switch it. Changes are highlighted and update duels instantly. To add new columns, add them to your
-        file from the template and import it again.
+        Click a value to edit it; Enter saves and moves down, Tab moves right. Whole numbers only. An entity with ATK on
+        both channels deals a mixed attack. Changes are highlighted and update duels instantly. Complements are listed in
+        their own tab. To add new columns, add them to your file from the template and import it again.
       </p>
       <p className="notice" role="status" aria-live="polite">
         {notice && (
@@ -184,8 +176,9 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
         <table className="data-table editor-table">
           <thead>
             <tr>
-              {sortHeader('name', 'Name · id')}
-              {schema.hasCategory && <th scope="col" rowSpan={2}>Category</th>}
+              {sortHeader('name', 'Unit · id')}
+              {schema.hasCharacter && <th scope="col" rowSpan={2}>Character</th>}
+              {schema.hasClass && <th scope="col" rowSpan={2}>Class</th>}
               {schema.hasCost && sortHeader('cost', 'Cost', true)}
               {schema.hasHp && sortHeader('hp', 'HP', true)}
               {channelGroups.map(({ channel, atk, def }) => (
@@ -198,11 +191,6 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                   {channel.label}
                 </th>
               ))}
-              {hybridColumns.length > 0 && (
-                <th scope="colgroup" colSpan={hybridColumns.length} className="group-head tone-hybrid">
-                  Hybrid
-                </th>
-              )}
               {schema.tagKeys.map((key) => (
                 <th key={`tag-${key}`} scope="col" rowSpan={2}>
                   {key}
@@ -234,11 +222,6 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                     ]
                   : []),
               ])}
-              {hybridColumns.map(({ kind, key }, index) => (
-                <th key={`${kind}-${key}`} scope="col" className={`num${index === 0 ? ' group-start' : ''}`}>
-                  <StatCode kind={kind} channels={channels} channelKey={key} />
-                </th>
-              ))}
             </tr>
           </thead>
           <tbody>
@@ -263,20 +246,17 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                       onCommit={(text) => save(row, { ...entity, id: text.trim() })}
                     />
                   </th>
-                  {schema.hasCategory && (
-                    <td className={mark('category')}>
-                      <EditableCell
-                        label={`Category of ${entity.name}`}
-                        value={entity.category ?? ''}
-                        display={entity.category ?? '—'}
-                        onCommit={(text) => {
-                          const next = { ...entity };
-                          if (text.trim() === '') delete next.category;
-                          else next.category = text.trim();
-                          return save(row, next);
-                        }}
-                      />
-                    </td>
+                  {(['character', 'class'] as const).map((field) =>
+                    (field === 'character' ? schema.hasCharacter : schema.hasClass) ? (
+                      <td key={field} className={mark(field)}>
+                        <EditableCell
+                          label={`${field === 'class' ? 'Class' : 'Character'} of ${entity.name}`}
+                          value={entity[field] ?? ''}
+                          display={entity[field] ?? <span className="faint">—</span>}
+                          onCommit={(text) => saveText(row, field, text)}
+                        />
+                      </td>
+                    ) : null,
                   )}
                   {schema.hasCost && (
                     <td className={`num ${mark('cost') ?? ''}`}>
@@ -318,22 +298,23 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                     const { key } = channel;
                     const cells = [];
                     if (atk) {
-                      const value = entity.hybridAtk ? 0 : (entity.atk[key] ?? 0);
-                      const active = value > 0;
+                      const value = entity.atk[key] ?? 0;
                       cells.push(
-                        <td key={`atk-${key}`} className={`num group-start ${mark('attack') ?? ''}`}>
+                        <td key={`atk-${key}`} className={`num group-start ${mark(`atk:${key}`) ?? ''}`}>
                           <EditableCell
                             numeric
                             label={`${statCode('atk', channels, key)} of ${entity.name}`}
-                            value={active ? String(value) : ''}
+                            value={value > 0 ? String(value) : ''}
                             display={
-                              active ? (
+                              value > 0 ? (
                                 <strong className={`value tone-${channelTone(channels, key)}`}>{value}</strong>
                               ) : (
                                 <span className="faint">—</span>
                               )
                             }
-                            onCommit={(text) => saveAttack(row, 'atk', key, text)}
+                            onCommit={(text) =>
+                              saveNumber(row, text, (e, parsed) => ({ ...e, atk: { ...e.atk, [key]: parsed ?? 0 } }))
+                            }
                           />
                         </td>,
                       );
@@ -354,37 +335,6 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                       );
                     }
                     return cells;
-                  })}
-                  {hybridColumns.map(({ kind, key }, index) => {
-                    const start = index === 0 ? ' group-start' : '';
-                    if (kind === 'hyb') {
-                      const active = entity.hybridAtk !== undefined;
-                      const value = entity.hybridAtk?.[key] ?? 0;
-                      return (
-                        <td key={`hyb-${key}`} className={`num${start} ${mark('attack') ?? ''}`}>
-                          <EditableCell
-                            numeric
-                            label={`${statCode('hyb', channels, key)} of ${entity.name}`}
-                            value={active ? String(value) : ''}
-                            display={active ? <strong className="value tone-hybrid">{value}</strong> : <span className="faint">—</span>}
-                            onCommit={(text) => saveAttack(row, 'hyb', key, text)}
-                          />
-                        </td>
-                      );
-                    }
-                    return (
-                      <td key={`arm-${key}`} className={`num${start} ${mark(`hybridDef:${key}`) ?? ''}`}>
-                        <EditableCell
-                          numeric
-                          label={`${statCode('arm', channels, key)} of ${entity.name}`}
-                          value={String(entity.hybridDef[key] ?? '')}
-                          display={entity.hybridDef[key] ?? <span className="faint">—</span>}
-                          onCommit={(text) =>
-                            saveNumber(row, text, (e, value) => ({ ...e, hybridDef: withKey(e.hybridDef, key, value) }))
-                          }
-                        />
-                      </td>
-                    );
                   })}
                   {schema.tagKeys.map((key) => (
                     <td key={`tag-${key}`} className={mark(`tag:${key}`)}>

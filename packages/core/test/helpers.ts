@@ -1,4 +1,4 @@
-import type { Channel, Entity } from '../src';
+import type { Channel, Complement, Entity } from '../src';
 
 export const channels: Channel[] = [
   { key: '1', label: 'Channel 1' },
@@ -10,9 +10,18 @@ export const entity = (id: string, overrides: Partial<Entity> = {}): Entity => (
   name: id,
   atk: {},
   def: {},
-  hybridDef: {},
   tags: {},
   stats: {},
+  extra: {},
+  ...overrides,
+});
+
+export const complement = (id: string, overrides: Partial<Complement> = {}): Complement => ({
+  id,
+  name: id,
+  class: 'tank',
+  atk: {},
+  def: {},
   extra: {},
   ...overrides,
 });

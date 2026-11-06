@@ -3,20 +3,37 @@
  */
 
 import { useMemo, useState } from 'react';
-import { matchupMatrix, metricValue, METRICS, winnerBy, hitsMargin, type Channel, type Matchup, type Metric } from '@metrix/core';
+import {
+  equipAll,
+  hitsMargin,
+  matchupMatrix,
+  metricValue,
+  METRICS,
+  winnerBy,
+  type ArmorCoverage,
+  type Channel,
+  type Complement,
+  type Matchup,
+  type Metric,
+} from '@metrix/core';
 import { plural } from '../../lib/format';
 import type { GenreProfile } from '../../lib/genres';
 import { wallReason } from '../../lib/explain';
 import { formatHits, formatSigned, metricHint, metricName } from '../../lib/metrics';
+import { displayName } from '../../lib/schema';
 import type { Row } from '../../state/catalog';
 
-/** Beyond this the grid stops being readable; the category filter narrows it down. */
+/** Beyond this the grid stops being readable; the class filter narrows it down. */
 const MAX_ENTITIES = 60;
 const ALL = '__all__';
 
 interface DuelMatrixProps {
   /** The two damage channels of the catalog. */
   channels: readonly Channel[];
+  /** How much of each channel every armor stops. */
+  coverage: ArmorCoverage;
+  /** Active complements; "With complements" adds them to every character of their class. */
+  complements: readonly Complement[];
   /** Catalog rows, in catalog order. */
   rows: readonly Row[];
   /** Genre profile: default metric and the word for one attack. */
@@ -53,25 +70,44 @@ function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string 
  * - The cell value and the winner come from the selected metric (the genre's by default).
  * - Color strength follows the margin of victory; marks (up, down, equal) repeat the result
  *   for readers who cannot rely on color.
+ * - "Base / With complements" compares the base values or the values with the active complements
+ *   of each class; a diamond mark flags the duels whose winner changes between the two.
  * - Clicking a cell opens that duel in Versus. "Walls" lists attacks that deal 0 damage.
- * - Large catalogs are capped at `MAX_ENTITIES` per view; the category filter shows the rest.
+ * - Large catalogs are capped at `MAX_ENTITIES` per view; the class filter shows the rest.
  */
-export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
+export function DuelMatrix({ channels, coverage, complements, rows, genre, onOpen }: DuelMatrixProps) {
   const [metric, setMetric] = useState<Metric>(genre.primary);
-  const [category, setCategory] = useState(ALL);
+  const [equipped, setEquipped] = useState(false);
+  const [classFilter, setClassFilter] = useState(ALL);
   const [sortByRecord, setSortByRecord] = useState(false);
   const [hover, setHover] = useState<{ row: number; column: number } | null>(null);
-  const categories = useMemo(
-    () => [...new Set(rows.flatMap(({ entity }) => (entity.category ? [entity.category] : [])))],
+  const classes = useMemo(
+    () => [...new Set(rows.flatMap(({ entity }) => (entity.class ? [entity.class] : [])))],
     [rows],
   );
 
   const shown = useMemo(
-    () => rows.filter(({ entity }) => category === ALL || entity.category === category).slice(0, MAX_ENTITIES),
-    [rows, category],
+    () => rows.filter(({ entity }) => classFilter === ALL || entity.class === classFilter).slice(0, MAX_ENTITIES),
+    [rows, classFilter],
   );
-  const total = rows.filter(({ entity }) => category === ALL || entity.category === category).length;
-  const grid = useMemo(() => matchupMatrix(shown.map((row) => row.entity), channels), [shown, channels]);
+  const total = rows.filter(({ entity }) => classFilter === ALL || entity.class === classFilter).length;
+  const hasComplements = complements.length > 0;
+  const showEquipped = equipped && hasComplements;
+  const baseGrid = useMemo(
+    () => matchupMatrix(shown.map((row) => row.entity), channels, coverage),
+    [shown, channels, coverage],
+  );
+  const equippedGrid = useMemo(
+    () => (hasComplements ? matchupMatrix(equipAll(shown.map((row) => row.entity), complements), channels, coverage) : baseGrid),
+    [shown, channels, coverage, complements, hasComplements, baseGrid],
+  );
+  const grid = showEquipped ? equippedGrid : baseGrid;
+  /** True when the complements change who wins this duel, by the selected metric. */
+  const flips = (row: number, column: number) => {
+    const before = baseGrid[row]?.[column];
+    const after = equippedGrid[row]?.[column];
+    return before !== undefined && after !== undefined && winnerBy(before, metric) !== winnerBy(after, metric);
+  };
 
   const records = grid.map((row) => {
     const opponents = row.filter((result) => result.attackerId !== result.defenderId);
@@ -126,12 +162,25 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
             ))}
           </select>
         </label>
-        {categories.length > 1 && (
+        {hasComplements && (
+          <fieldset className="segmented">
+            <legend className="visually-hidden">Values</legend>
+            <label className={!equipped ? 'is-active' : undefined}>
+              <input type="radio" name="loadout" checked={!equipped} onChange={() => setEquipped(false)} />
+              Base
+            </label>
+            <label className={equipped ? 'is-active' : undefined}>
+              <input type="radio" name="loadout" checked={equipped} onChange={() => setEquipped(true)} />
+              With complements
+            </label>
+          </fieldset>
+        )}
+        {classes.length > 1 && (
           <label className="field">
-            <span>Category</span>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option value={ALL}>All categories</option>
-              {categories.map((name) => (
+            <span>Class</span>
+            <select value={classFilter} onChange={(event) => setClassFilter(event.target.value)}>
+              <option value={ALL}>All classes</option>
+              {classes.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
@@ -150,6 +199,7 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
             <li><span className="swatch win" /> ▲ Row wins</li>
             <li><span className="swatch loss" /> ▼ Row loses</li>
             <li><span className="swatch draw" /> = Draw or no winner</li>
+            {hasComplements && <li>◆ Winner changes with complements</li>}
             <li className="muted">Stronger color = bigger margin</li>
           </ul>
         )}
@@ -157,7 +207,8 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
 
       <p className="muted small intro">
         {metricHint(metric, genre)} Click a cell to open the duel in Versus, step by step.
-        {total > MAX_ENTITIES && ` Showing the first ${MAX_ENTITIES} of ${total}; filter by category to see the rest.`}
+        {showEquipped && ' Values include the active complements of each class.'}
+        {total > MAX_ENTITIES && ` Showing the first ${MAX_ENTITIES} of ${total}; filter by class to see the rest.`}
       </p>
 
       <div className="table-scroll">
@@ -170,8 +221,8 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
               {order.map((index) => {
                 const { key, entity } = shown[index] as Row;
                 return (
-                  <th key={key} scope="col" className={`defender${hover?.column === index ? ' hl' : ''}`}>
-                    <span>{entity.name}</span>
+                  <th key={key} scope="col" className={`defender${hover?.column === index ? ' hl' : ''}`} title={displayName(entity)}>
+                    <span>{entity.character ?? entity.name}</span>
                   </th>
                 );
               })}
@@ -184,7 +235,9 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
               const record = records[rowIndex] ?? { wins: 0, losses: 0 };
               return (
                 <tr key={attacker.key}>
-                  <th scope="row" className={`attacker${hover?.row === rowIndex ? ' hl' : ''}`}>{attacker.entity.name}</th>
+                  <th scope="row" className={`attacker${hover?.row === rowIndex ? ' hl' : ''}`} title={displayName(attacker.entity)}>
+                    {attacker.entity.character ?? attacker.entity.name}
+                  </th>
                   {order.map((columnIndex) => {
                     const defender = shown[columnIndex] as Row;
                     const result = grid[rowIndex]?.[columnIndex] as Matchup;
@@ -198,10 +251,11 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
                     const close = metric === 'hits' && margin !== undefined && Math.abs(margin) === 1;
                     const text = cellText(result, metric, genre);
                     const mark = tone === 'win' ? '▲' : tone === 'loss' ? '▼' : tone === 'draw' ? '=' : '';
+                    const flipped = hasComplements && ranks && flips(rowIndex, columnIndex);
                     return (
                       <td
                         key={defender.key}
-                        className={`cell ${tone} level-${strength(result, metric)}${close ? ' close' : ''}${crossed}`}
+                        className={`cell ${tone} level-${strength(result, metric)}${close ? ' close' : ''}${flipped ? ' flipped' : ''}${crossed}`}
                         onMouseEnter={() => setHover({ row: rowIndex, column: columnIndex })}
                       >
                         <button
@@ -209,13 +263,14 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
                           className="cell-link"
                           onClick={() => onOpen(attacker.key, defender.key)}
                           onFocus={() => setHover({ row: rowIndex, column: columnIndex })}
-                          aria-label={`${attacker.entity.name} against ${defender.entity.name}: ${text}${
+                          aria-label={`${displayName(attacker.entity)} against ${displayName(defender.entity)}: ${text}${
                             tone === 'win' ? ', row wins' : tone === 'loss' ? ', row loses' : ''
-                          }. Open in Versus`}
-                          title={close ? 'Close fight' : undefined}
+                          }${flipped ? ', winner changes with complements' : ''}. Open in Versus`}
+                          title={[close && 'Close fight', flipped && 'Winner changes with complements'].filter(Boolean).join(' · ') || undefined}
                         >
                           {mark && <span className="cell-mark" aria-hidden="true">{mark}</span>}
                           {text}
+                          {flipped && <span className="cell-flip" aria-hidden="true">◆</span>}
                         </button>
                       </td>
                     );
@@ -241,8 +296,8 @@ export function DuelMatrix({ channels, rows, genre, onOpen }: DuelMatrixProps) {
           <ul className="wall-list">
             {walls.map(({ defender, immuneTo }) => (
               <li key={defender.key}>
-                <strong>{defender.entity.name}</strong> takes 0 damage from {plural(immuneTo.length, 'attacker')}:{' '}
-                {immuneTo.map(({ attacker, reason }) => `${attacker.entity.name} (${reason})`).join('; ')}.
+                <strong>{displayName(defender.entity)}</strong> takes 0 damage from {plural(immuneTo.length, 'attacker')}:{' '}
+                {immuneTo.map(({ attacker, reason }) => `${displayName(attacker.entity)} (${reason})`).join('; ')}.
               </li>
             ))}
           </ul>

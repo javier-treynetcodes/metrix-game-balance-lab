@@ -2,7 +2,17 @@
  * @file Catalog model of the web app: rows, change tracking and browser persistence.
  */
 
-import { labelFor, type Channel, type CsvLayout, type Entity, type Genre, type ImportIssue } from '@metrix/core';
+import {
+  coverageValue,
+  labelFor,
+  type ArmorCoverage,
+  type Channel,
+  type Complement,
+  type CsvLayout,
+  type Entity,
+  type Genre,
+  type ImportIssue,
+} from '@metrix/core';
 
 /** An entity with a stable key, so edits can be tracked even when its id changes. */
 export interface Row {
@@ -12,7 +22,7 @@ export interface Row {
 
 /** A successfully imported catalog, ready to analyze, edit and export. */
 export interface Catalog {
-  version: 2;
+  version: 3;
   /** File name, or a label for built-in data. */
   source: string;
   importedAt: string;
@@ -22,6 +32,17 @@ export interface Catalog {
   rows: Row[];
   /** Rows as imported, to show and revert changes. */
   original: Row[];
+  /** Complements of the file, by class. Read-only in the app: they come from the CSV. */
+  complements: Complement[];
+  /**
+   * Ids of complements switched off in the app. A viewing setting, not an edit: it is not
+   * exported, has no undo step and every complement is active again after an import.
+   */
+  inactiveComplements: string[];
+  /** Armor coverage as edited in the Damage rules tab. */
+  coverage: ArmorCoverage;
+  /** Armor coverage as imported, to show and revert changes. */
+  originalCoverage: ArmorCoverage;
   /** Non-blocking issues reported during import. */
   warnings: ImportIssue[];
   genre?: Genre;
@@ -42,16 +63,22 @@ export function createCatalog(
   channels: Channel[],
   entities: Entity[],
   warnings: ImportIssue[],
+  complements: Complement[] = [],
+  coverage: ArmorCoverage = {},
 ): Catalog {
   const rows = entities.map((entity, index) => ({ key: `r${index}`, entity }));
   return {
-    version: 2,
+    version: 3,
     source,
     importedAt: new Date().toISOString(),
     layout,
     channels,
     rows,
     original: rows,
+    complements,
+    inactiveComplements: [],
+    coverage,
+    originalCoverage: coverage,
     warnings,
     revision: 0,
     exportedRevision: 0,
@@ -64,13 +91,13 @@ export function entityFields(entity: Entity): Record<string, string> {
   const fields: Record<string, string> = {
     id: entity.id,
     name: entity.name,
-    category: entity.category ?? '',
+    character: entity.character ?? '',
+    class: entity.class ?? '',
     cost: String(entity.cost ?? ''),
     hp: String(entity.hp ?? ''),
-    attack: JSON.stringify([entity.atk, entity.hybridAtk ?? null]),
   };
+  for (const [key, value] of Object.entries(entity.atk)) fields[`atk:${key}`] = String(value);
   for (const [key, value] of Object.entries(entity.def)) fields[`def:${key}`] = String(value);
-  for (const [key, value] of Object.entries(entity.hybridDef)) fields[`hybridDef:${key}`] = String(value);
   for (const [key, value] of Object.entries(entity.tags)) fields[`tag:${key}`] = value;
   for (const [key, value] of Object.entries(entity.stats)) fields[`stat:${key}`] = String(value);
   return fields;
@@ -91,7 +118,28 @@ export function changedFields(before: Entity | undefined, after: Entity): Set<st
   return new Set([...keys].filter((key) => !same(key)));
 }
 
-/** Number of changes since import: edited fields, added and deleted entities and renamed channels. */
+/** Coverage values that differ from the imported ones, as `armor>attack` keys. */
+export function changedCoverage(catalog: Catalog): Set<string> {
+  const changed = new Set<string>();
+  for (const armor of catalog.channels) {
+    for (const attack of catalog.channels) {
+      const before = coverageValue(catalog.originalCoverage, armor.key, attack.key);
+      if (coverageValue(catalog.coverage, armor.key, attack.key) !== before) changed.add(`${armor.key}>${attack.key}`);
+    }
+  }
+  return changed;
+}
+
+/** Active complements: every complement of the file except those switched off in the app. */
+export function activeComplements(catalog: Catalog): Complement[] {
+  const inactive = new Set(catalog.inactiveComplements);
+  return catalog.complements.filter((complement) => !inactive.has(complement.id));
+}
+
+/**
+ * Number of changes since import: edited fields, added and deleted entities, renamed channels
+ * and coverage values.
+ */
 export function countChanges(catalog: Catalog): number {
   const original = new Map(catalog.original.map((row) => [row.key, row.entity]));
   const current = new Set(catalog.rows.map((row) => row.key));
@@ -101,11 +149,13 @@ export function countChanges(catalog: Catalog): number {
     count += before ? changedFields(before, row.entity).size : 1;
   }
   count += catalog.channels.filter((channel) => channel.label !== labelFor(channel.key)).length;
+  count += changedCoverage(catalog).size;
   return count;
 }
 
-const STORAGE_KEY = 'metrix:catalog:v2';
-const LEGACY_KEY = 'metrix:catalog:v1';
+const STORAGE_KEY = 'metrix:catalog:v3';
+/** Keys used by older versions, whose catalogs no longer match the current model. */
+const LEGACY_KEYS = ['metrix:catalog:v1', 'metrix:catalog:v2'];
 
 /** What `loadSavedCatalog` found in this browser. */
 export interface SavedState {
@@ -121,9 +171,11 @@ export interface SavedState {
 export function loadSavedCatalog(): SavedState {
   let discardedLegacy = false;
   try {
-    if (window.localStorage.getItem(LEGACY_KEY) !== null) {
-      window.localStorage.removeItem(LEGACY_KEY);
-      discardedLegacy = true;
+    for (const key of LEGACY_KEYS) {
+      if (window.localStorage.getItem(key) !== null) {
+        window.localStorage.removeItem(key);
+        discardedLegacy = true;
+      }
     }
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return { catalog: null, discardedLegacy };
@@ -151,11 +203,15 @@ function isCatalog(value: unknown): value is Catalog {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.version === 2 &&
+    candidate.version === 3 &&
     typeof candidate.source === 'string' &&
     Array.isArray(candidate.channels) &&
     Array.isArray(candidate.rows) &&
     Array.isArray(candidate.original) &&
+    Array.isArray(candidate.complements) &&
+    Array.isArray(candidate.inactiveComplements) &&
+    typeof candidate.coverage === 'object' &&
+    typeof candidate.originalCoverage === 'object' &&
     typeof candidate.layout === 'object'
   );
 }

@@ -65,6 +65,14 @@ export function importText(text: string, source: string): ImportOutcome {
   }
   return {
     kind: 'imported',
-    catalog: createCatalog(source, result.layout, result.channels, result.entities, result.issues),
+    catalog: createCatalog(
+      source,
+      result.layout,
+      result.channels,
+      result.entities,
+      result.issues,
+      result.complements,
+      result.coverage,
+    ),
   };
 }

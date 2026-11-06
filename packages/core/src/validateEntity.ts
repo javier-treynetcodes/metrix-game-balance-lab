@@ -11,12 +11,13 @@ export type EntityProblemCode =
   | 'missing-name'
   | 'not-a-whole-number'
   | 'zero-hp'
+  | 'speed-below-one'
   | 'missing-class';
 
 /** One broken rule, with the field it concerns so the editor can point at the right cell. */
 export interface EntityProblem {
   code: EntityProblemCode;
-  /** Field the problem is about: id, name, class, cost, hp, atk or def. */
+  /** Field the problem is about: id, name, class, cost, hp, speed, move, atk or def. */
   field: string;
   message: string;
 }
@@ -31,6 +32,7 @@ export const ENTITY_MESSAGES: Record<EntityProblemCode, string> = {
   'missing-name': 'Every row needs a name.',
   'not-a-whole-number': 'Use whole numbers of 0 or more: write 48, not 48.5, -48 or "48 hp".',
   'zero-hp': 'HP must be at least 1. Leave it empty if the entity cannot be defeated.',
+  'speed-below-one': 'Speed and move are percentages where 100 is normal: write a whole number of 1 or more, e.g. 110.',
   'missing-class': 'A complement needs the class that receives it, e.g. "tank".',
 };
 
@@ -76,12 +78,18 @@ export function validateEntity(entity: Entity): EntityProblem[] {
     [
       ['cost', entity.cost],
       ['hp', entity.hp],
+      ['speed', entity.speed],
+      ['move', entity.move],
       ...Object.values(entity.atk).map((value): [string, number] => ['atk', value]),
       ...Object.values(entity.def).map((value): [string, number] => ['def', value]),
     ],
     add,
   );
   if (entity.hp === 0) add('zero-hp', 'hp');
+  // A speed of 0 would never attack or move; the percentage starts at 1.
+  for (const field of ['speed', 'move'] as const) {
+    if (entity[field] === 0) add('speed-below-one', field);
+  }
   return problems;
 }
 
@@ -95,6 +103,8 @@ export function validateComplement(complement: Complement): EntityProblem[] {
   if (complement.class.trim() === '') add('missing-class', 'class');
   checkWholeNumbers(
     [
+      ['speed', complement.speed],
+      ['move', complement.move],
       ...Object.values(complement.atk).map((value): [string, number] => ['atk', value]),
       ...Object.values(complement.def).map((value): [string, number] => ['def', value]),
     ],

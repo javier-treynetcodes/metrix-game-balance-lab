@@ -59,3 +59,19 @@ describe('validateComplement', () => {
     ]);
   });
 });
+
+describe('speed and move', () => {
+  it('accept whole percentages of 1 or more', () => {
+    expect(validateEntity(entity('a', { speed: 1, move: 300 }))).toEqual([]);
+  });
+
+  it('reject 0, negatives and decimals', () => {
+    expect(validateEntity(entity('a', { speed: 0, move: 0 })).map((problem) => `${problem.code}:${problem.field}`)).toEqual([
+      'speed-below-one:speed',
+      'speed-below-one:move',
+    ]);
+    expect(validateEntity(entity('a', { speed: 1.5, move: -2 })).map((problem) => problem.field)).toEqual(['speed', 'move']);
+    expect(validateComplement(complement('c', { speed: -1, move: 0.5 })).map((problem) => problem.field)).toEqual(['speed', 'move']);
+    expect(validateComplement(complement('c', { speed: 0 }))).toEqual([]);
+  });
+});

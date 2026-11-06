@@ -37,6 +37,16 @@ export interface Entity {
   class?: string;
   cost?: number;
   hp?: number;
+  /**
+   * Attack speed as a whole percentage: 100 is normal, 125 attacks 25% faster.
+   * Used by "time to defeat". Undefined when the catalog does not use speed.
+   */
+  speed?: number;
+  /**
+   * Movement speed as a whole percentage: 100 is normal. Informative only: it never changes
+   * a duel result, it only tells who can catch up with or escape from whom.
+   */
+  move?: number;
   /** Attack per channel. Values on both channels make a mixed attack. */
   atk: Record<string, number>;
   /** Armor per channel. How much of each channel it stops is set by the armor coverage. */
@@ -62,6 +72,10 @@ export interface Complement {
   atk: Record<string, number>;
   /** Armor added per channel. */
   def: Record<string, number>;
+  /** Attack speed points added (110 instead of 100 for a bonus of 10). Optional. */
+  speed?: number;
+  /** Movement speed points added. Optional. */
+  move?: number;
   /** Cells of columns Métrix does not use, by column position, kept as written for export. */
   extra: Record<string, string>;
 }

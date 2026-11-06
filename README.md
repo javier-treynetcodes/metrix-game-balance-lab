@@ -24,24 +24,24 @@ Everything runs locally in your browser. Your data is never uploaded and there i
 
 ### 1. Get the template
 
-Open Métrix and choose **Download template** or **Copy template**. To look around before preparing your own file, choose **Try with example data**. The template is a CSV file with eight invented characters across the six usual MOBA classes (tank, fighter, mage, marksman, assassin and support) and one complement per class. It is balanced so every character wins some duels and loses others, and the complements change who wins three of them:
+Open Métrix and choose **Download template** or **Copy template**. To look around before preparing your own file, choose **Try with example data**. The template is a CSV file with eight invented characters across the six usual MOBA classes (tank, fighter, mage, marksman, assassin and support) and one complement per class. Each class has its own attack speed and move speed, and three complements raise them. It is balanced so every character wins some duels and loses others, by hits and by time, and the complements change who wins some of them:
 
 ```csv
-id,kind,name,character,class,cost,hp,atk:channel1,def:channel1,atk:channel2,def:channel2,tag:role
-vanguard,unit,Iron Vanguard,Aria,tank,45,600,30,30,0,10,frontline
-duelist,unit,Blade Duelist,Kael,fighter,47,500,26,20,26,12,frontline
-archer,unit,Long Archer,Lysa,marksman,44,400,50,6,0,6,backline
-shadow,unit,Night Shadow,Vex,assassin,46,380,54,10,0,8,flank
-sorcerer,unit,Storm Sorcerer,Nyra,mage,49,440,0,10,42,20,backline
-oracle,unit,Dawn Oracle,Sera,support,44,440,0,16,30,24,backline
-warden,unit,Rune Warden,Toren,tank,48,640,0,26,28,14,frontline
-witch,unit,Ember Witch,Mira,mage,42,320,0,8,44,18,flank
-shield,complement,Tower Shield,,tank,,,,2,,10,
-blade,complement,Twin Blade,,fighter,,,10,,,,
-bow,complement,Hunter Bow,,marksman,,,6,,,,
-dagger,complement,Venom Dagger,,assassin,,,6,,,,
-staff,complement,Arcane Staff,,mage,,,,,2,,
-charm,complement,Ward Charm,,support,,,,8,,2,
+id,kind,name,character,class,cost,hp,speed,move,atk:channel1,def:channel1,atk:channel2,def:channel2,tag:role
+vanguard,unit,Iron Vanguard,Aria,tank,45,600,95,90,30,30,0,10,frontline
+duelist,unit,Blade Duelist,Kael,fighter,47,500,105,100,26,20,26,12,frontline
+archer,unit,Long Archer,Lysa,marksman,44,400,125,105,50,6,0,6,backline
+shadow,unit,Night Shadow,Vex,assassin,46,380,110,120,54,10,0,8,flank
+sorcerer,unit,Storm Sorcerer,Nyra,mage,49,440,105,100,0,10,42,20,backline
+oracle,unit,Dawn Oracle,Sera,support,44,440,95,100,0,16,30,24,backline
+warden,unit,Rune Warden,Toren,tank,48,640,90,85,0,26,28,14,frontline
+witch,unit,Ember Witch,Mira,mage,42,320,95,105,0,8,44,18,flank
+shield,complement,Tower Shield,,tank,,,,,,2,,10,
+blade,complement,Twin Blade,,fighter,,,,10,10,,,,
+bow,complement,Hunter Bow,,marksman,,,10,,6,,,,
+dagger,complement,Venom Dagger,,assassin,,,5,,6,,,,
+staff,complement,Arcane Staff,,mage,,,,,,,2,,
+charm,complement,Ward Charm,,support,,,,,,8,,2,
 ```
 
 ### 2. Fill it with your catalog
@@ -63,10 +63,12 @@ Replace the example rows with your own, one per row. The `kind` column says what
 | `class` | No* | The class, e.g. `tank`. | *Required: the class that receives it. |
 | `cost` | No | Gold, mana, level… | Empty. |
 | `hp` | No | Health, at least 1. Needed to count hits to defeat. | Empty. |
+| `speed` | No | Attack speed as a whole percentage where 100 is normal, at least 1. If any unit has it, every unit needs it. | Speed it adds, or empty. |
+| `move` | No | Move speed as a whole percentage where 100 is normal, at least 1. Informative: it never changes who wins. If any unit has it, every unit needs it. | Move it adds, or empty. |
 | `atk:<channel>` | No | Attack on that channel. Values on both channels make a **mixed attack**. | Attack it adds. |
 | `def:<channel>` | No | Armor on that channel. | Armor it adds. |
 | `tag:<name>` | No | Text labels, e.g. `tag:role` with `frontline`. | Empty. |
-| Any other column | No | Extra whole-number stats (speed, range…). Other columns are kept as they are and exported back untouched. | Empty. |
+| Any other column | No | Extra whole-number stats (range, crit…). Other columns are kept as they are and exported back untouched. | Empty. |
 
 #### How damage works
 
@@ -85,6 +87,13 @@ Channel 1: 30 − 20                   = 10
 Channel 2: 25 − (20 × 20 % + 5) = 25 − 9 = 16
 Per hit:   10 + 16                   = 26
 ```
+
+#### Speed and movement
+
+Both columns are optional: leave them empty and Métrix works as before. They are percentages where **100 is normal**, so `125` is 25 % faster and `90` is 10 % slower. Complements can only add to them.
+
+- **Attack speed (`speed`)** changes the duel. With it, Métrix adds the **Time to defeat** measure: `hits × 100 ÷ speed`. An archer that needs 20 hits at 125 % speed takes `20 × 100 ÷ 125 = 16.0`, faster than a tank that needs 18 hits at 90 % (`20.0`). Fewer wins. Times are compared exactly and shown with one decimal.
+- **Move speed (`move`)** does not change who wins: Métrix does not simulate positions. It adds informative notes instead: a winner that moves faster can chase the loser down, and a loser that moves faster can escape the fight or avoid it. When the difference is under 10 points the note says *slightly* faster.
 
 #### Armor coverage
 
@@ -119,7 +128,7 @@ Tips:
 Drag the CSV into Métrix or choose **Choose CSV file**. To replace a loaded catalog, choose **Import another file**. Métrix checks the whole file before importing anything:
 
 - **Errors** block the import completely: no data is loaded until every error is fixed. All errors are listed at once, each with the lines to fix and how to fix it.
-- **Warnings** let the import continue: columns Métrix does not analyze are kept as they are, and entities without `hp` cannot be defeated.
+- **Warnings** let the import continue: columns Métrix does not analyze are kept as they are, entities without `hp` cannot be defeated, speeds above 300 % are flagged as a likely typo, and speed or move bonuses are flagged when no unit has that stat.
 
 If the file has quote errors, only those are listed, because they shift every following cell. Fix them and import again to see any remaining errors.
 
@@ -130,15 +139,16 @@ After importing, tell Métrix what kind of game it is. The genre decides which m
 | Genre | Duels ranked by |
 | --- | --- |
 | Card game | Trade |
-| Shooter | Shots to defeat |
+| Shooter | Shots to defeat (time to defeat when the file has `speed`) |
 | Turn-based RPG | Hits to defeat |
-| MOBA / Action | Hits to defeat |
+| MOBA / Action | Hits to defeat (time to defeat when the file has `speed`) |
 | Board game | Trade |
 | Other | Your choice |
 
-The four measures, all whole numbers:
+The measures:
 
 - **Hits to defeat:** how many hits (shots, attacks) one entity needs to bring the other to 0 hp. Fewer wins; the same number is a draw.
+- **Time to defeat:** only when the file has `speed`. Hits to defeat adjusted by attack speed (`hits × 100 ÷ speed`). Fewer wins; the same time is a draw.
 - **Damage per hit:** damage of one hit after the defender's defense. More wins.
 - **Trade:** damage dealt minus damage received when both hit once. Positive wins.
 - **Damage blocked:** how much of an attack the defense stops. It describes armor and names no winner.
@@ -148,8 +158,8 @@ The four measures, all whole numbers:
 - **Catalog:** click any value to edit it, and add, duplicate or delete entities. Changes are highlighted, can be undone (Ctrl/Cmd+Z) and reverted all at once. New columns are added in the file, from the template.
 - **Damage rules:** how damage works, the armor coverage, your channel names, and which entities some attacks hit in full.
 - **Complements:** every complement by class, with its bonuses and the characters that receive it. Switch complements on or off to see which one changes the balance; this only affects the view and the CSV keeps them all.
-- **Duels:** every entity against every other one, ranked by the genre's measure or the one you pick, with each entity's win–loss record. Switch between **Base** and **With complements**; a ◆ marks the duels whose winner changes. Close fights are marked, and **Walls** lists the entities some attackers cannot damage at all, with the reason.
-- **Versus:** pick two entities and see who is stronger, why, and the subtraction behind every hit. Each side can fight **with complements**, and every bonus appears with the name of its complement. Use − and + to try changes and **Apply to catalog** when you like them.
+- **Duels:** every entity against every other one, ranked by the genre's measure or the one you pick, with each entity's win–loss record. Switch between **Base** and **With complements**; a ◆ marks the duels whose winner changes. Close fights are marked, **Walls** lists the entities some attackers cannot damage at all, with the reason, and, when the file has `move`, **Escapes** lists the losers that move faster than their winner.
+- **Versus:** pick two entities and see who is stronger, why, and the subtraction behind every hit. With `speed` it also shows the time to defeat, and with `move` a **Movement** note on who can chase or escape. Each side can fight **with complements**, and every bonus appears with the name of its complement. Use − and + to try changes and **Apply to catalog** when you like them.
 - **Export CSV:** download your catalog as you left it in Métrix, with the same columns, order and separator as your file, ready to import again.
 - **Galaxy** and **cost/power curve** *(coming soon)*.
 
@@ -177,12 +187,14 @@ Most import errors come from how a spreadsheet saved the file. Open the CSV in a
 | --- | --- | --- |
 | Not a whole number | `48.5`, `600 hp`, `-10`, `N/A` | Write whole numbers of 0 or more: `48`, `600`. Leave the cell empty if there is no value. |
 | HP of 0 | `hp` = `0` | HP must be at least 1. Leave it empty if the entity cannot be defeated. |
+| Speed or move of 0 | `speed` = `0` | They are percentages where 100 is normal: write a whole number of 1 or more, e.g. `110`. |
+| Missing speed or move | Some units have `speed` and others leave it empty | If any unit has the column, every unit needs a value. Leave the whole column empty if your game does not use it. |
 | Missing `id` or `name` | `,Iron Vanguard,45` | Every row needs both. |
 | Id with spaces | `iron vanguard` | Use hyphens: `iron-vanguard`. |
 | Duplicate id | Two rows with `vanguard` | Every id must be unique across units, complements and rules, e.g. `vanguard` and `vanguard-elite`. |
 | Unknown `kind` | `boss` | Use `unit`, `complement` or `rule`, or leave it empty for units. |
 | Complement without `class` | `shield,complement,Tower Shield,,,…` | Write the class that receives it, e.g. `tank`. |
-| Complement with unit data | A complement with `hp`, `cost`, `character` or `tag:` | Complements only use `id`, `kind`, `name`, `class` and the `atk:`/`def:` bonuses. Leave the rest empty. |
+| Complement with unit data | A complement with `hp`, `cost`, `character` or `tag:` | Complements only use `id`, `kind`, `name`, `class`, the `atk:`/`def:` bonuses and the `speed`/`move` bonuses. Leave the rest empty. |
 | Rule for an unknown channel | `fire,rule,…` when the channels are `channel1` and `channel2` | A rule row's `id` is the channel whose armor it describes. |
 | Coverage above 100 | `def:channel2` = `120` in a rule row | Coverage is a whole percentage from 0 to 100. |
 

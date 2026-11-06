@@ -1,0 +1,450 @@
+{
+  "name": "attack-speed",
+  "description": "Attack speed turns hits into time to defeat (hits * 100 / speed), compared exactly. Covers a duel whose winner flips with speed (Slow Brute and Quick Rogue), a draw in hits that speed breaks (Slow Brute and Even Monk) and an exact draw in time (Heavy Hitter, 2 hits at 100%, against Quick Lancer, 3 hits at 150%). Move never changes a result.",
+  "channels": [
+    {
+      "key": "physical",
+      "label": "Physical"
+    },
+    {
+      "key": "magic",
+      "label": "Magic"
+    }
+  ],
+  "entities": [
+    {
+      "id": "brute",
+      "name": "Slow Brute",
+      "hp": 100,
+      "speed": 80,
+      "move": 85,
+      "atk": {
+        "physical": 25
+      },
+      "def": {
+        "physical": 0,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "rogue",
+      "name": "Quick Rogue",
+      "hp": 100,
+      "speed": 150,
+      "move": 130,
+      "atk": {
+        "physical": 20
+      },
+      "def": {
+        "physical": 0,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "monk",
+      "name": "Even Monk",
+      "hp": 100,
+      "speed": 100,
+      "move": 100,
+      "atk": {
+        "physical": 10,
+        "magic": 15
+      },
+      "def": {
+        "physical": 0,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "heavy",
+      "name": "Heavy Hitter",
+      "hp": 90,
+      "speed": 100,
+      "move": 90,
+      "atk": {
+        "physical": 45
+      },
+      "def": {
+        "physical": 0,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "lancer",
+      "name": "Quick Lancer",
+      "hp": 90,
+      "speed": 150,
+      "move": 120,
+      "atk": {
+        "physical": 30
+      },
+      "def": {
+        "physical": 0,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    }
+  ],
+  "expected": {
+    "damage": [
+      {
+        "attacker": "brute",
+        "defender": "rogue",
+        "damage": 25
+      },
+      {
+        "attacker": "brute",
+        "defender": "monk",
+        "damage": 25
+      },
+      {
+        "attacker": "brute",
+        "defender": "heavy",
+        "damage": 25
+      },
+      {
+        "attacker": "brute",
+        "defender": "lancer",
+        "damage": 25
+      },
+      {
+        "attacker": "rogue",
+        "defender": "brute",
+        "damage": 20
+      },
+      {
+        "attacker": "rogue",
+        "defender": "monk",
+        "damage": 20
+      },
+      {
+        "attacker": "rogue",
+        "defender": "heavy",
+        "damage": 20
+      },
+      {
+        "attacker": "rogue",
+        "defender": "lancer",
+        "damage": 20
+      },
+      {
+        "attacker": "monk",
+        "defender": "brute",
+        "damage": 25
+      },
+      {
+        "attacker": "monk",
+        "defender": "rogue",
+        "damage": 25
+      },
+      {
+        "attacker": "monk",
+        "defender": "heavy",
+        "damage": 25
+      },
+      {
+        "attacker": "monk",
+        "defender": "lancer",
+        "damage": 25
+      },
+      {
+        "attacker": "heavy",
+        "defender": "brute",
+        "damage": 45
+      },
+      {
+        "attacker": "heavy",
+        "defender": "rogue",
+        "damage": 45
+      },
+      {
+        "attacker": "heavy",
+        "defender": "monk",
+        "damage": 45
+      },
+      {
+        "attacker": "heavy",
+        "defender": "lancer",
+        "damage": 45
+      },
+      {
+        "attacker": "lancer",
+        "defender": "brute",
+        "damage": 30
+      },
+      {
+        "attacker": "lancer",
+        "defender": "rogue",
+        "damage": 30
+      },
+      {
+        "attacker": "lancer",
+        "defender": "monk",
+        "damage": 30
+      },
+      {
+        "attacker": "lancer",
+        "defender": "heavy",
+        "damage": 30
+      }
+    ],
+    "hitsToDefeat": [
+      {
+        "attacker": "brute",
+        "defender": "rogue",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "brute",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "brute",
+        "defender": "heavy",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "brute",
+        "defender": "lancer",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "rogue",
+        "defender": "brute",
+        "result": {
+          "kind": "defeats",
+          "hits": 5
+        }
+      },
+      {
+        "attacker": "rogue",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 5
+        }
+      },
+      {
+        "attacker": "rogue",
+        "defender": "heavy",
+        "result": {
+          "kind": "defeats",
+          "hits": 5
+        }
+      },
+      {
+        "attacker": "rogue",
+        "defender": "lancer",
+        "result": {
+          "kind": "defeats",
+          "hits": 5
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "brute",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "rogue",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "heavy",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "lancer",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "heavy",
+        "defender": "brute",
+        "result": {
+          "kind": "defeats",
+          "hits": 3
+        }
+      },
+      {
+        "attacker": "heavy",
+        "defender": "rogue",
+        "result": {
+          "kind": "defeats",
+          "hits": 3
+        }
+      },
+      {
+        "attacker": "heavy",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 3
+        }
+      },
+      {
+        "attacker": "heavy",
+        "defender": "lancer",
+        "result": {
+          "kind": "defeats",
+          "hits": 2
+        }
+      },
+      {
+        "attacker": "lancer",
+        "defender": "brute",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "lancer",
+        "defender": "rogue",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "lancer",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 4
+        }
+      },
+      {
+        "attacker": "lancer",
+        "defender": "heavy",
+        "result": {
+          "kind": "defeats",
+          "hits": 3
+        }
+      }
+    ],
+    "timeToDefeat": [
+      {
+        "attacker": "brute",
+        "defender": "rogue",
+        "time": 5.0,
+        "backwardTime": 3.333333,
+        "winnerByHits": "attacker",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "brute",
+        "defender": "monk",
+        "time": 5.0,
+        "backwardTime": 4.0,
+        "winnerByHits": "draw",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "brute",
+        "defender": "heavy",
+        "time": 5.0,
+        "backwardTime": 3.0,
+        "winnerByHits": "defender",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "brute",
+        "defender": "lancer",
+        "time": 5.0,
+        "backwardTime": 2.666667,
+        "winnerByHits": "draw",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "rogue",
+        "defender": "monk",
+        "time": 3.333333,
+        "backwardTime": 4.0,
+        "winnerByHits": "defender",
+        "winnerByTime": "attacker"
+      },
+      {
+        "attacker": "rogue",
+        "defender": "heavy",
+        "time": 3.333333,
+        "backwardTime": 3.0,
+        "winnerByHits": "defender",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "rogue",
+        "defender": "lancer",
+        "time": 3.333333,
+        "backwardTime": 2.666667,
+        "winnerByHits": "defender",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "monk",
+        "defender": "heavy",
+        "time": 4.0,
+        "backwardTime": 3.0,
+        "winnerByHits": "defender",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "monk",
+        "defender": "lancer",
+        "time": 4.0,
+        "backwardTime": 2.666667,
+        "winnerByHits": "draw",
+        "winnerByTime": "defender"
+      },
+      {
+        "attacker": "heavy",
+        "defender": "lancer",
+        "time": 2.0,
+        "backwardTime": 2.0,
+        "winnerByHits": "attacker",
+        "winnerByTime": "draw"
+      }
+    ]
+  }
+}

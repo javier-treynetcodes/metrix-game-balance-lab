@@ -29,3 +29,22 @@ describe('complements', () => {
     expect(equipAll([tank, mage], [staff])).toEqual([tank, { ...mage, atk: { '2': 8 }, def: {} }]);
   });
 });
+
+describe('speed and move bonuses', () => {
+  const boots = complement('boots', { class: 'tank', speed: 10, move: 15 });
+
+  it('add to the speed and move of the class', () => {
+    expect(withComplements(entity('t', { class: 'tank', speed: 90, move: 85 }), [boots])).toMatchObject({ speed: 100, move: 100 });
+  });
+
+  it('do nothing on entities without speed or move', () => {
+    const plain = withComplements(entity('t', { class: 'tank' }), [boots]);
+    expect(plain.speed).toBeUndefined();
+    expect(plain.move).toBeUndefined();
+  });
+
+  it('leave speed as it is when a complement has no speed bonus', () => {
+    const shield = complement('shield', { class: 'tank', def: { '1': 2 } });
+    expect(withComplements(entity('t', { class: 'tank', speed: 90 }), [shield]).speed).toBe(90);
+  });
+});

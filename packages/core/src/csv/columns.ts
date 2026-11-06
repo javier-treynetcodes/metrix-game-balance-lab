@@ -7,14 +7,14 @@ export type RetiredColumn = 'category' | 'hybrid';
 
 /** What a CSV column means. Shared by the importer and the exporter so both read headers the same way. */
 export type ColumnRole =
-  | { kind: 'id' | 'kind' | 'name' | 'character' | 'class' | 'cost' | 'hp' }
+  | { kind: 'id' | 'kind' | 'name' | 'character' | 'class' | 'cost' | 'hp' | 'speed' | 'move' }
   | { kind: 'atk' | 'def'; channel: string }
   | { kind: 'tag'; key: string }
   | { kind: 'stat'; key: string }
   | { kind: 'retired'; column: RetiredColumn }
   | { kind: 'unsupported' | 'rate' };
 
-const FIXED_COLUMNS = ['id', 'kind', 'name', 'character', 'class', 'cost', 'hp'] as const;
+const FIXED_COLUMNS = ['id', 'kind', 'name', 'character', 'class', 'cost', 'hp', 'speed', 'move'] as const;
 
 /** Word that hybrid columns of older templates used after `atk:` or `def:`. */
 const HYBRID = 'hybrid';

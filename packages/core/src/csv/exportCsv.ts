@@ -121,6 +121,8 @@ export function exportCsv(
           return quote(entity[role.kind] ?? '', delimiter);
         case 'cost':
         case 'hp':
+        case 'speed':
+        case 'move':
           return numberCell(entity[role.kind]);
         case 'atk':
         case 'def':
@@ -146,6 +148,9 @@ export function exportCsv(
           return quote(complement[role.kind], delimiter);
         case 'kind':
           return 'complement';
+        case 'speed':
+        case 'move':
+          return numberCell(complement[role.kind]);
         case 'atk':
         case 'def':
           return numberCell(complement[role.kind][role.channel]);

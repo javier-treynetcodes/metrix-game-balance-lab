@@ -95,6 +95,8 @@ export function entityFields(entity: Entity): Record<string, string> {
     class: entity.class ?? '',
     cost: String(entity.cost ?? ''),
     hp: String(entity.hp ?? ''),
+    speed: String(entity.speed ?? ''),
+    move: String(entity.move ?? ''),
   };
   for (const [key, value] of Object.entries(entity.atk)) fields[`atk:${key}`] = String(value);
   for (const [key, value] of Object.entries(entity.def)) fields[`def:${key}`] = String(value);

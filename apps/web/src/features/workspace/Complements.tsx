@@ -20,7 +20,13 @@ interface ComplementsProps {
   onToggle: (id: string) => void;
 }
 
-/** "ATK 1 +4, DEF 2 +10": the bonuses of a complement as stat codes. */
+/** Speed bonuses a complement can add, in percentage points. */
+const SPEED_BONUSES = [
+  { field: 'speed', label: 'Speed' },
+  { field: 'move', label: 'Move' },
+] as const;
+
+/** "ATK 1 +4, DEF 2 +10, Speed +10%": the bonuses of a complement. */
 function Bonuses({ complement, channels }: { complement: Complement; channels: readonly Channel[] }) {
   const parts = (['atk', 'def'] as const).flatMap((kind) =>
     channels.flatMap(({ key }) => {
@@ -28,12 +34,21 @@ function Bonuses({ complement, channels }: { complement: Complement; channels: r
       return value > 0 ? [{ kind, key, value }] : [];
     }),
   );
-  if (parts.length === 0) return <span className="muted">No bonus</span>;
+  const speeds = SPEED_BONUSES.flatMap(({ field, label }) => {
+    const value = complement[field] ?? 0;
+    return value > 0 ? [{ field, label, value }] : [];
+  });
+  if (parts.length === 0 && speeds.length === 0) return <span className="muted">No bonus</span>;
   return (
     <span className="bonus-list">
       {parts.map(({ kind, key, value }) => (
         <span key={`${kind}-${key}`} className="bonus-item">
           <StatCode kind={kind} channels={channels} channelKey={key} /> +{value}
+        </span>
+      ))}
+      {speeds.map(({ field, label, value }) => (
+        <span key={field} className="bonus-item">
+          {label} +{value}%
         </span>
       ))}
     </span>

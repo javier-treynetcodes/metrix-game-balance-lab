@@ -79,7 +79,24 @@ export const GENRES: readonly GenreProfile[] = [
   },
 ];
 
-/** Profile of a genre, falling back to "Other" when none was picked yet. */
-export function genreProfile(genre: Genre | undefined): GenreProfile {
-  return GENRES.find((profile) => profile.id === genre) ?? (GENRES.at(-1) as GenreProfile);
+/** Genres where attack speed decides who wins first, so they rank by time when the catalog has speed. */
+const SPEED_GENRES: readonly Genre[] = ['moba', 'shooter'];
+
+/**
+ * Profile of a genre, falling back to "Other" when none was picked yet.
+ * With `usesSpeed`, MOBA/Action and Shooter rank duels by time to defeat instead of hits.
+ */
+export function genreProfile(genre: Genre | undefined, usesSpeed = false): GenreProfile {
+  const profile = GENRES.find((candidate) => candidate.id === genre) ?? (GENRES.at(-1) as GenreProfile);
+  return usesSpeed ? withSpeed(profile) : profile;
+}
+
+/** The same profile, ranking by time to defeat when the genre is one where attack speed matters. */
+export function withSpeed(profile: GenreProfile): GenreProfile {
+  if (!SPEED_GENRES.includes(profile.id)) return profile;
+  return {
+    ...profile,
+    primary: 'time',
+    howToRead: `${profile.howToRead} Your catalog has attack speed, so cells show time to defeat: ${profile.hit}s divided by speed. A faster entity can win a duel it would draw or lose on ${profile.hit}s alone.`,
+  };
 }

@@ -26,7 +26,13 @@ interface CatalogEditorProps {
   onCompare: (key: string) => void;
 }
 
-type SortKey = 'name' | 'cost' | 'hp';
+/** Speed columns: percentages where 100 is normal, required when the catalog has them. */
+const SPEED_FIELDS = [
+  { field: 'speed', label: 'Speed' },
+  { field: 'move', label: 'Move' },
+] as const;
+
+type SortKey = 'name' | 'cost' | 'hp' | 'speed' | 'move';
 
 /** Optional text fields of an entity, edited as free text and removed when emptied. */
 type TextField = 'character' | 'class';
@@ -144,7 +150,7 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
               ? plural(rows.length, 'entity', 'entities')
               : `${visible.length} of ${plural(rows.length, 'entity', 'entities')}`}
           </p>
-          <button type="button" className="button button-primary" onClick={() => actions.addEntity(blankEntity(schema))}>
+          <button type="button" className="button button-power" onClick={() => actions.addEntity(blankEntity(schema))}>
             Add entity
           </button>
         </div>
@@ -181,6 +187,8 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
               {schema.hasClass && <th scope="col" rowSpan={2}>Class</th>}
               {schema.hasCost && sortHeader('cost', 'Cost', true)}
               {schema.hasHp && sortHeader('hp', 'HP', true)}
+              {schema.hasSpeed && sortHeader('speed', 'Speed', true)}
+              {schema.hasMove && sortHeader('move', 'Move', true)}
               {channelGroups.map(({ channel, atk, def }) => (
                 <th
                   key={channel.key}
@@ -293,6 +301,20 @@ export function CatalogEditor({ catalog, schema, actions, onCompare }: CatalogEd
                         }
                       />
                     </td>
+                  )}
+                  {SPEED_FIELDS.filter(({ field }) => (field === 'speed' ? schema.hasSpeed : schema.hasMove)).map(
+                    ({ field, label }) => (
+                      <td key={field} className={`num ${mark(field) ?? ''}`}>
+                        <EditableCell
+                          numeric
+                          label={`${label} of ${entity.name}`}
+                          value={String(entity[field] ?? '')}
+                          display={entity[field] === undefined ? '—' : `${entity[field]}%`}
+                          // Required: every unit of a catalog with the column has a value.
+                          onCommit={(text) => saveNumber(row, text, (e, value) => ({ ...e, [field]: value }), true)}
+                        />
+                      </td>
+                    ),
                   )}
                   {channelGroups.flatMap(({ channel, atk, def }) => {
                     const { key } = channel;

@@ -42,6 +42,9 @@ export type ImportIssueCode =
   | 'text-column-ignored'
   | 'unsupported-column'
   | 'rate-not-used'
+  | 'missing-speed'
+  | 'high-speed'
+  | 'unused-speed-bonus'
   | 'unused-complement'
   | 'missing-cost'
   | 'missing-hp';
@@ -165,7 +168,13 @@ function ruleProblems(row: { id: string; name: string }): EntityProblem[] {
 /** Columns a complement row must leave empty: they only describe units. */
 const UNIT_ONLY = new Set(['character', 'cost', 'hp', 'tag', 'stat']);
 /** Columns a rule row must leave empty: only `def:` holds its percentages. */
-const RULE_EMPTY = new Set(['character', 'class', 'cost', 'hp', 'atk', 'tag', 'stat']);
+const RULE_EMPTY = new Set(['character', 'class', 'cost', 'hp', 'speed', 'move', 'atk', 'tag', 'stat']);
+
+/** Optional percentage stats: when a catalog uses one, every unit needs it. */
+type SpeedStat = 'speed' | 'move';
+
+/** Above this a speed is almost always a typo (1250 instead of 125), so it gets a warning. */
+export const HIGH_SPEED = 300;
 
 /**
  * Imports a CSV catalog that follows the Métrix template (see `CSV_TEMPLATE`).
@@ -250,7 +259,7 @@ export function importEntities(text: string): ImportResult {
         log.add({
           severity: 'warning',
           code: 'rate-not-used',
-          message: `Métrix compares entities by hits, not by attack speed, so column "${original}" was kept as is and not analyzed.`,
+          message: `Column "${original}" was kept as is and not analyzed. For attack speed, use a "speed" column with a whole percentage where 100 is normal, e.g. 125 for 25% faster.`,
           column: original,
         });
         return { kind: 'ignored' };
@@ -315,6 +324,13 @@ export function importEntities(text: string): ImportResult {
     }
   });
 
+  // A speed column is "in use" when any unit fills it; then every unit must fill it.
+  const usesStat: Record<SpeedStat, boolean> = { speed: false, move: false };
+  columns.forEach(({ role }, index) => {
+    if (role.kind !== 'speed' && role.kind !== 'move') return;
+    usesStat[role.kind] = dataRows.some(({ cells }) => kindOf(cells) === 'unit' && (cells[index] ?? '').trim() !== '');
+  });
+
   const separatorName = DELIMITER_NAMES[delimiter];
   const hasCost = columns.some(({ role }) => role.kind === 'cost');
   const entities: Entity[] = [];
@@ -325,7 +341,7 @@ export function importEntities(text: string): ImportResult {
   /** Logs each problem as an error on `line`; returns true when there was any. */
   const reportProblems = (problems: readonly EntityProblem[], line: number): boolean => {
     for (const problem of problems) {
-      const column = problem.field === 'id' || problem.field === 'hp' || problem.field === 'class' ? problem.field : undefined;
+      const column = ['id', 'hp', 'class', 'speed', 'move'].includes(problem.field) ? problem.field : undefined;
       log.add({ severity: 'error', code: problem.code, message: problem.message, ...(column ? { column } : {}) }, line);
     }
     return problems.length > 0;
@@ -392,7 +408,7 @@ export function importEntities(text: string): ImportResult {
       if (raw !== '' && rowKind === 'complement' && UNIT_ONLY.has(role.kind)) {
         fail(
           'complement-field',
-          `Complement rows only use id, kind, name, class and the atk: and def: bonuses. Leave column "${column}" empty.`,
+          `Complement rows only use id, kind, name, class, the atk: and def: bonuses, and the speed and move bonuses. Leave column "${column}" empty.`,
           column,
         );
         return;
@@ -456,6 +472,31 @@ export function importEntities(text: string): ImportResult {
         case 'cost':
         case 'hp':
           if (value !== undefined) entity[role.kind] = value;
+          return;
+        case 'speed':
+        case 'move':
+          if (rowKind === 'complement') {
+            if (value) complement[role.kind] = value;
+          } else if (value !== undefined) {
+            entity[role.kind] = value;
+            if (value > HIGH_SPEED) {
+              log.add(
+                {
+                  severity: 'warning',
+                  code: 'high-speed',
+                  message: `Some values in "${column}" are above ${HIGH_SPEED}%: that is more than three times the normal speed. Check for a typo, e.g. 1250 instead of 125.`,
+                  column,
+                },
+                line,
+              );
+            }
+          } else if (usesStat[role.kind]) {
+            fail(
+              'missing-speed',
+              `Column "${column}" is used, so every unit needs a value: write a whole percentage where 100 is normal. Leave the whole column empty if your game does not use it.`,
+              column,
+            );
+          }
       }
     });
 
@@ -513,6 +554,18 @@ export function importEntities(text: string): ImportResult {
         code: 'unused-complement',
         message: `Complement "${complement.name}" is for class "${complement.class}", which no unit has, so it affects nobody. Check the class name.`,
         column: 'class',
+      });
+    }
+  }
+
+  // Speed bonuses only add to a speed that exists: without the stat on units they do nothing.
+  for (const stat of ['speed', 'move'] as const) {
+    if (!usesStat[stat] && complements.some((complement) => complement[stat] !== undefined)) {
+      log.add({
+        severity: 'warning',
+        code: 'unused-speed-bonus',
+        message: `Some complements add ${stat}, but no unit has ${stat}, so those bonuses do nothing. Add ${stat} to every unit or leave it empty in the complements.`,
+        column: stat,
       });
     }
   }

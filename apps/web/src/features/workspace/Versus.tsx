@@ -7,6 +7,9 @@ import {
   complementsFor,
   hitsMargin,
   matchup,
+  moveEdge,
+  movementNote,
+  timeToDefeat,
   validateEntity,
   winnerBy,
   withComplements,
@@ -22,7 +25,7 @@ import { StatCode } from '../../components/StatCode';
 import { Stepper } from '../../components/Stepper';
 import { damageReasons } from '../../lib/explain';
 import type { GenreProfile } from '../../lib/genres';
-import { capitalize, formatHits, formatSigned, metricName } from '../../lib/metrics';
+import { capitalize, formatHits, formatPercent, formatSigned, formatTime, formatTrade, metricName } from '../../lib/metrics';
 import { statCode } from '../../lib/codes';
 import { attackValue, displayName, type CatalogSchema } from '../../lib/schema';
 import { entityFields, type Row } from '../../state/catalog';
@@ -40,6 +43,10 @@ interface VersusProps {
   schema: CatalogSchema;
   /** Genre profile: the metric behind the verdict and the word for one attack. */
   genre: GenreProfile;
+  /** True when the units have attack speed: shows time to defeat. */
+  usesSpeed: boolean;
+  /** True when the units have move: shows the Movement notes. */
+  usesMove: boolean;
   /** Row keys of side A and side B. Both may point to the same row (mirror match). */
   pair: [string, string];
   /** Called when the user picks or swaps entities. */
@@ -62,6 +69,14 @@ interface Bonus {
 function bonusesOf(applied: readonly Complement[], kind: 'atk' | 'def', channel: string): Bonus[] {
   return applied.flatMap((complement) => {
     const value = complement[kind][channel] ?? 0;
+    return value > 0 ? [{ name: complement.name, value }] : [];
+  });
+}
+
+/** Bonuses that the complements add to speed or move, by complement name. */
+function speedBonusesOf(applied: readonly Complement[], stat: 'speed' | 'move'): Bonus[] {
+  return applied.flatMap((complement) => {
+    const value = complement[stat] ?? 0;
     return value > 0 ? [{ name: complement.name, value }] : [];
   });
 }
@@ -104,7 +119,19 @@ function sideOf(base: Entity, complements: readonly Complement[], equipped: bool
  * breakdown names every bonus. The "Try changes" steppers edit base values in local drafts
  * only; "Apply to catalog" saves them as a single undo step after checking them.
  */
-export function Versus({ rows, channels, coverage, complements, schema, genre, pair, onPairChange, onApply }: VersusProps) {
+export function Versus({
+  rows,
+  channels,
+  coverage,
+  complements,
+  schema,
+  genre,
+  usesSpeed,
+  usesMove,
+  pair,
+  onPairChange,
+  onApply,
+}: VersusProps) {
   const byKey = new Map(rows.map((row) => [row.key, row]));
   const rowA = byKey.get(pair[0]);
   const rowB = byKey.get(pair[1]);
@@ -146,6 +173,15 @@ export function Versus({ rows, channels, coverage, complements, schema, genre, p
       const [w, l, wh, lh] = winner === 'attacker' ? [nameA, nameB, fa, fb] : [nameB, nameA, fb, fa];
       const loserText = lh === undefined ? `${l} cannot defeat ${w}` : `${l} needs ${lh}`;
       return { title: `${w} is stronger`, detail: `Defeats ${l} in ${wh} ${hit}s; ${loserText}.` };
+    }
+    if (metric === 'time') {
+      const ta = timeToDefeat(result);
+      const tb = timeToDefeat(result, 'backward');
+      if (winner === 'none') return { title: 'Neither can defeat the other', detail: 'Both deal 0 damage, or neither has hp.' };
+      if (winner === 'draw') return { title: 'Even match', detail: `Both need the same time: ${formatTime(ta ?? 0)}.` };
+      const [w, l, wt, lt] = winner === 'attacker' ? [nameA, nameB, ta, tb] : [nameB, nameA, tb, ta];
+      const loserText = lt === undefined ? `${l} cannot defeat ${w}` : `${l} needs ${formatTime(lt)}`;
+      return { title: `${w} is stronger`, detail: `Defeats ${l} in a time of ${formatTime(wt ?? 0)}; ${loserText}.` };
     }
     if (winner === 'none') return { title: 'Neither deals damage', detail: 'Both attacks are fully stopped.' };
     if (winner === 'draw') return { title: 'Even trade', detail: `Both deal ${result.forward.damage} per ${hit}.` };
@@ -201,6 +237,8 @@ export function Versus({ rows, channels, coverage, complements, schema, genre, p
           {costLine && <span className="tag">{costLine}</span>}
         </p>
       </section>
+
+      {usesMove && <Movement result={result} sides={[sideA, sideB]} names={[nameA, nameB]} metric={metric} />}
 
       <StatCompare a={a} b={b} nameA={nameA} nameB={nameB} channels={channels} schema={schema} />
 
@@ -259,6 +297,23 @@ export function Versus({ rows, channels, coverage, complements, schema, genre, p
                   <>
                     <strong>{formatHits(hits, genre)}</strong> of {breakdown.damage} damage to bring {otherName}&apos;s{' '}
                     {rival.fighter.hp} hp to 0.
+                    {usesSpeed && own.fighter.speed !== undefined && (
+                      <>
+                        {' '}
+                        At {formatPercent(own.fighter.speed)} attack speed
+                        {speedBonusesOf(own.applied, 'speed').length > 0 && (
+                          <>
+                            {' '}
+                            <BonusSum base={own.base.speed ?? 0} bonuses={speedBonusesOf(own.applied, 'speed')} />
+                          </>
+                        )}
+                        , that is a time of{' '}
+                        <strong>
+                          {hits.hits} × 100 ÷ {own.fighter.speed} = {formatTime((hits.hits * 100) / own.fighter.speed)}
+                        </strong>
+                        .
+                      </>
+                    )}
                   </>
                 ) : (
                   <strong>{hits.kind === 'cannot-damage' ? `Can't damage ${otherName}` : `${otherName} has no hp`}</strong>
@@ -291,6 +346,13 @@ export function Versus({ rows, channels, coverage, complements, schema, genre, p
               <td className="num">{formatHits(result.forwardHits, genre)}</td>
               <td className="num">{formatHits(result.backwardHits, genre)}</td>
             </tr>
+            {usesSpeed && (
+              <tr>
+                <th scope="row">{metricName('time', genre)}</th>
+                <td className="num">{formatTimeOr(timeToDefeat(result), result.forwardHits, genre)}</td>
+                <td className="num">{formatTimeOr(timeToDefeat(result, 'backward'), result.backwardHits, genre)}</td>
+              </tr>
+            )}
             <tr>
               <th scope="row">{metricName('damage', genre)}</th>
               <td className="num">{result.forward.damage}</td>
@@ -303,12 +365,16 @@ export function Versus({ rows, channels, coverage, complements, schema, genre, p
             </tr>
             <tr>
               <th scope="row">{metricName('trade', genre)}</th>
-              <td className="num">{formatSigned(result.trade)}</td>
-              <td className="num">{formatSigned(-result.trade)}</td>
+              <td className="num">{formatTrade(result.forward.damage, result.backward.damage)}</td>
+              <td className="num">{formatTrade(result.backward.damage, result.forward.damage)}</td>
             </tr>
           </tbody>
         </table>
         </div>
+        <p className="muted small measures-note">
+          Trade: damage dealt minus damage received when both {hit} once. It ignores hp
+          {usesSpeed ? ' and attack speed' : ''}, so a side can lose the trade and still win the duel.
+        </p>
       </section>
 
       <div className={`apply-bar${changedKeys.length > 0 ? ' is-sticky' : ''}`}>
@@ -358,6 +424,8 @@ function StatCompare({
   const stats: { label: ReactNode; key: string; a: number | undefined; b: number | undefined }[] = [];
   if (a.hp !== undefined || b.hp !== undefined) stats.push({ label: 'HP', key: 'hp', a: a.hp, b: b.hp });
   if (a.cost !== undefined || b.cost !== undefined) stats.push({ label: 'Cost', key: 'cost', a: a.cost, b: b.cost });
+  if (a.speed !== undefined || b.speed !== undefined) stats.push({ label: 'Speed', key: 'speed', a: a.speed, b: b.speed });
+  if (a.move !== undefined || b.move !== undefined) stats.push({ label: 'Move', key: 'move', a: a.move, b: b.move });
   stats.push({ label: 'Attack', key: 'attack', a: attackValue(a), b: attackValue(b) });
   for (const key of schema.defChannels) {
     stats.push({
@@ -510,6 +578,12 @@ function WhatIf({
   if (entity.hp !== undefined) {
     steppers.push({ label: 'HP', value: entity.hp, was: original.hp, min: 1, set: (hp) => ({ ...entity, hp }) });
   }
+  if (entity.speed !== undefined) {
+    steppers.push({ label: 'Speed', value: entity.speed, was: original.speed, min: 1, set: (speed) => ({ ...entity, speed }) });
+  }
+  if (entity.move !== undefined) {
+    steppers.push({ label: 'Move', value: entity.move, was: original.move, min: 1, set: (move) => ({ ...entity, move }) });
+  }
   for (const key of schema.atkChannels) {
     steppers.push({
       label: statCode('atk', channels, key),
@@ -543,5 +617,80 @@ function WhatIf({
         ))}
       </div>
     </details>
+  );
+}
+
+/** Time to defeat with one decimal, or the reason there is none ("Can't damage"). */
+function formatTimeOr(time: number | undefined, hits: HitsToDefeat, genre: GenreProfile): string {
+  return time === undefined ? formatHits(hits, genre) : formatTime(time);
+}
+
+/** "Move 120% (100 + 20 Swift Boots)": a side's move with the bonuses behind it. */
+function MoveValue({ side }: { side: Side }) {
+  const move = side.fighter.move ?? 0;
+  const bonuses = speedBonusesOf(side.applied, 'move');
+  return (
+    <>
+      move {formatPercent(move)}
+      {bonuses.length > 0 && (
+        <>
+          {' '}
+          <BonusSum base={side.base.move ?? 0} bonuses={bonuses} />
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Movement notes: who can catch up with or escape from whom, crossed with the duel result.
+ * Informative only: Métrix does not simulate positions, so movement never changes the winner.
+ */
+function Movement({
+  result,
+  sides,
+  names,
+  metric,
+}: {
+  result: ReturnType<typeof matchup>;
+  sides: [Side, Side];
+  names: [string, string];
+  metric: Parameters<typeof movementNote>[1];
+}) {
+  const edge = moveEdge(result);
+  const note = movementNote(result, metric);
+  if (!edge || !note) return null;
+
+  const [nameA, nameB] = names;
+  const fasterIndex = edge.faster === 'defender' ? 1 : 0;
+  const faster = names[fasterIndex] as string;
+  const slower = names[1 - fasterIndex] as string;
+  const degree = edge.slight ? 'slightly faster' : 'faster';
+  const winner = winnerBy(result, metric) === 'attacker' ? nameA : nameB;
+  const loser = winner === nameA ? nameB : nameA;
+
+  const text = (() => {
+    switch (note) {
+      case 'winner-faster':
+        return `${winner} wins and moves ${degree}: ${winner} can chase ${loser} down, and ${loser} cannot escape.`;
+      case 'loser-faster':
+        return `${loser} loses but moves ${degree}: ${loser} can escape this fight, or avoid it altogether.`;
+      case 'same':
+        return 'Same move speed: neither can outrun the other, so the duel decides.';
+      case 'faster-no-winner':
+        return `${faster} moves ${degree}: ${faster} can catch up with or get away from ${slower}.`;
+    }
+  })();
+
+  return (
+    <section className="movement" aria-labelledby="movement-title">
+      <h3 id="movement-title" className="movement-title">
+        Movement <span className="muted small">does not change the duel result</span>
+      </h3>
+      <p>{text}</p>
+      <p className="muted small">
+        {nameA}: <MoveValue side={sides[0]} /> · {nameB}: <MoveValue side={sides[1]} />
+      </p>
+    </section>
   );
 }

@@ -74,7 +74,10 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
   const [exported, setExported] = useState<string | null>(null);
   const [nudgeDismissed, setNudgeDismissed] = useState(() => readFlag(SPONSOR_NUDGE_DISMISSED));
   const schema = useMemo(() => catalogSchema(catalog), [catalog]);
-  const genre = genreProfile(catalog.genre);
+  // Attack speed is in use when the units have it; it changes the default measure of some genres.
+  const usesSpeed = rows.some((row) => row.entity.speed !== undefined);
+  const usesMove = rows.some((row) => row.entity.move !== undefined);
+  const genre = genreProfile(catalog.genre, usesSpeed);
   const changes = countChanges(catalog);
   const unexported = catalog.revision !== catalog.exportedRevision;
   const [genreNotice, setGenreNotice] = useState('');
@@ -158,14 +161,14 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
 
   const pickGenre = (next: Genre, announce = true) => {
     actions.setGenre(next);
-    const profile = genreProfile(next);
+    const profile = genreProfile(next, usesSpeed);
     if (announce) setGenreNotice(`${profile.name}: duels now rank by ${metricNameFor(profile)}. Your data hasn't changed.`);
   };
 
   if (!catalog.genre) {
     return (
       <div className="workspace">
-        <GenrePicker onPick={(next) => pickGenre(next, false)} />
+        <GenrePicker usesSpeed={usesSpeed} onPick={(next) => pickGenre(next, false)} />
       </div>
     );
   }
@@ -211,7 +214,7 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
             <button type="button" className="button button-ghost" onClick={actions.redo} disabled={!actions.canRedo} title="Redo (Ctrl/Cmd+Shift+Z)">
               ↷ Redo
             </button>
-            <button type="button" className="button button-primary export-button" onClick={exportFile}>
+            <button type="button" className="button button-power export-button" onClick={exportFile}>
               Export CSV
               {unexported && <span className="unsaved-dot" aria-label="Changes not exported yet" />}
             </button>
@@ -383,7 +386,9 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
                 <strong>How to read this ({genre.name}):</strong> {genre.howToRead}
               </p>
               <DuelMatrix
-                key={genre.id}
+                key={`${genre.id}-${genre.primary}`}
+                usesSpeed={usesSpeed}
+                usesMove={usesMove}
                 channels={channels}
                 coverage={coverage}
                 complements={active}
@@ -405,6 +410,8 @@ export function Workspace({ catalog, actions, onImportAnother, onClear }: Worksp
               complements={active}
               schema={schema}
               genre={genre}
+              usesSpeed={usesSpeed}
+              usesMove={usesMove}
               pair={validPair}
               onPairChange={setPair}
               onApply={actions.updateEntities}

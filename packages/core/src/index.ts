@@ -4,7 +4,8 @@
  * The engine is pure TypeScript with no DOM access and no side effects, so it can run in the
  * browser, in a Web Worker, in Node or in tests. Every function here is covered by tests and
  * the build fails below 100% coverage. Every game value is a whole number: attacks minus the
- * armor that covers each channel, with percentages rounded down.
+ * armor that covers each channel, with percentages rounded down. Attack speed turns hits into
+ * time to defeat; movement is informative and never changes a duel result.
  */
 
 export type { ArmorCoverage, AttackType, Channel, Complement, Entity, Genre } from './types';
@@ -29,16 +30,20 @@ export {
   type HitsToDefeat,
 } from './combat';
 export {
+  attackSpeed,
   hitsMargin,
   matchup,
   matchupMatrix,
   metricValue,
   METRICS,
+  NORMAL_SPEED,
+  timeToDefeat,
   winnerBy,
   type Matchup,
   type Metric,
   type Winner,
 } from './matchup';
+export { moveEdge, movementNote, SLIGHT_MOVE_DIFFERENCE, type MoveEdge, type MovementNote } from './movement';
 export {
   ENTITY_MESSAGES,
   isWholeNumber,
@@ -58,6 +63,7 @@ export {
 export { parseInteger } from './csv/parseInteger';
 export {
   CHANNEL_COUNT,
+  HIGH_SPEED,
   importEntities,
   labelFor,
   type CsvLayout,

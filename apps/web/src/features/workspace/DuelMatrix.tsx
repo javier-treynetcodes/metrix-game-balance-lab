@@ -1,5 +1,5 @@
 /**
- * @file Duels tab: matrix of every matchup, records and walls.
+ * @file Duels tab: matrix of every matchup, records, walls and escapes.
  */
 
 import { useMemo, useState } from 'react';
@@ -9,6 +9,9 @@ import {
   matchupMatrix,
   metricValue,
   METRICS,
+  moveEdge,
+  movementNote,
+  timeToDefeat,
   winnerBy,
   type ArmorCoverage,
   type Channel,
@@ -19,7 +22,7 @@ import {
 import { plural } from '../../lib/format';
 import type { GenreProfile } from '../../lib/genres';
 import { wallReason } from '../../lib/explain';
-import { formatHits, formatSigned, metricHint, metricName } from '../../lib/metrics';
+import { formatHits, formatPercent, formatSigned, formatTime, metricHint, metricName } from '../../lib/metrics';
 import { displayName } from '../../lib/schema';
 import type { Row } from '../../state/catalog';
 
@@ -32,6 +35,10 @@ interface DuelMatrixProps {
   channels: readonly Channel[];
   /** How much of each channel every armor stops. */
   coverage: ArmorCoverage;
+  /** True when the units have attack speed: offers "Time to defeat". */
+  usesSpeed: boolean;
+  /** True when the units have move: lists the duels the loser can escape. */
+  usesMove: boolean;
   /** Active complements; "With complements" adds them to every character of their class. */
   complements: readonly Complement[];
   /** Catalog rows, in catalog order. */
@@ -45,9 +52,10 @@ interface DuelMatrixProps {
 /** How decisive a duel is, from 1 (narrow) to 3 (crushing), to set the color strength. */
 function strength(result: Matchup, metric: Metric): 1 | 2 | 3 {
   let ratio: number;
-  if (metric === 'hits') {
-    const f = result.forwardHits.kind === 'defeats' ? result.forwardHits.hits : undefined;
-    const b = result.backwardHits.kind === 'defeats' ? result.backwardHits.hits : undefined;
+  if (metric === 'hits' || metric === 'time') {
+    const hitsBack = result.backwardHits.kind === 'defeats' ? result.backwardHits.hits : undefined;
+    const f = metric === 'hits' ? metricValue(result, 'hits') : timeToDefeat(result);
+    const b = metric === 'hits' ? hitsBack : timeToDefeat(result, 'backward');
     ratio = f === undefined || b === undefined ? 1 : Math.abs(f - b) / Math.max(f, b);
   } else {
     const top = Math.max(result.forward.damage, result.backward.damage);
@@ -59,6 +67,10 @@ function strength(result: Matchup, metric: Metric): 1 | 2 | 3 {
 function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string {
   if (metric === 'hits') {
     return result.forwardHits.kind === 'defeats' ? String(result.forwardHits.hits) : formatHits(result.forwardHits, genre);
+  }
+  if (metric === 'time') {
+    const time = timeToDefeat(result);
+    return time === undefined ? formatHits(result.forwardHits, genre) : formatTime(time);
   }
   const value = metricValue(result, metric) ?? 0;
   return metric === 'trade' ? formatSigned(value) : String(value);
@@ -73,9 +85,11 @@ function cellText(result: Matchup, metric: Metric, genre: GenreProfile): string 
  * - "Base / With complements" compares the base values or the values with the active complements
  *   of each class; a diamond mark flags the duels whose winner changes between the two.
  * - Clicking a cell opens that duel in Versus. "Walls" lists attacks that deal 0 damage.
+ * - "Escapes" (when the catalog has move) lists the duels whose loser moves faster than the
+ *   winner and can avoid the fight. Movement never changes a result: it is only a note.
  * - Large catalogs are capped at `MAX_ENTITIES` per view; the class filter shows the rest.
  */
-export function DuelMatrix({ channels, coverage, complements, rows, genre, onOpen }: DuelMatrixProps) {
+export function DuelMatrix({ usesSpeed, usesMove, channels, coverage, complements, rows, genre, onOpen }: DuelMatrixProps) {
   const [metric, setMetric] = useState<Metric>(genre.primary);
   const [equipped, setEquipped] = useState(false);
   const [classFilter, setClassFilter] = useState(ALL);
@@ -138,6 +152,23 @@ export function DuelMatrix({ channels, coverage, complements, rows, genre, onOpe
     }))
     .filter(({ immuneTo }) => immuneTo.length > 0);
 
+  // Each pair once: the loser by the selected metric moves faster, so it can avoid the fight.
+  const escapes = usesMove
+    ? shown.flatMap((first, i) =>
+        shown.flatMap((second, j) => {
+          const result = grid[i]?.[j];
+          if (j <= i || !result || movementNote(result, metric) !== 'loser-faster') return [];
+          const attackerWins = winnerBy(result, metric) === 'attacker';
+          const slight = moveEdge(result)?.slight ?? false;
+          return [
+            attackerWins
+              ? { winner: first, loser: second, winnerMove: result.move.attacker, loserMove: result.move.defender, slight }
+              : { winner: second, loser: first, winnerMove: result.move.defender, loserMove: result.move.attacker, slight },
+          ];
+        }),
+      )
+    : [];
+
   if (rows.length < 2) {
     return (
       <div className="tab-body">
@@ -154,7 +185,7 @@ export function DuelMatrix({ channels, coverage, complements, rows, genre, onOpe
         <label className="field">
           <span>Compare by</span>
           <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
-            {METRICS.map((option) => (
+            {METRICS.filter((option) => option !== 'time' || usesSpeed).map((option) => (
               <option key={option} value={option}>
                 {metricName(option, genre)}
                 {option === genre.primary ? ` (${genre.name} default)` : ''}
@@ -303,6 +334,25 @@ export function DuelMatrix({ channels, coverage, complements, rows, genre, onOpe
           </ul>
         )}
       </section>
+
+      {usesMove && ranks && (
+        <section className="insight" aria-labelledby="escapes-title">
+          <h3 id="escapes-title">Escapes</h3>
+          <p className="muted small">Movement does not change who wins: it shows which losers are fast enough to avoid the fight.</p>
+          {escapes.length === 0 ? (
+            <p className="muted">No loser moves faster than its winner: every fight can be forced.</p>
+          ) : (
+            <ul className="wall-list">
+              {escapes.map(({ winner, loser, winnerMove, loserMove, slight }) => (
+                <li key={`${winner.key}-${loser.key}`}>
+                  <strong>{displayName(loser.entity)}</strong> loses to {displayName(winner.entity)} but moves {slight ? 'slightly faster' : 'faster'} (move{' '}
+                  {formatPercent(loserMove ?? 0)} vs {formatPercent(winnerMove ?? 0)}): it can escape this fight or avoid it.
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

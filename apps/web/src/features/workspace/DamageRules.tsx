@@ -64,7 +64,12 @@ export function DamageRules({
 
   return (
     <div className="tab-body">
-      <HowDamageWorks channels={channels} open />
+      <HowDamageWorks
+        channels={channels}
+        open
+        usesSpeed={entities.some((entity) => entity.speed !== undefined)}
+        usesMove={entities.some((entity) => entity.move !== undefined)}
+      />
 
       <CoverageTable
         channels={channels}

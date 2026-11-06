@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { damageBreakdown, hitsToDefeat, type HitsToDefeat } from '../src';
+import { damageBreakdown, hitsToDefeat, matchup, timeToDefeat, winnerBy, type HitsToDefeat, type Winner } from '../src';
 import type { ArmorCoverage, Channel, Entity } from '../src';
 
 /** Reference cases with hand-computed results, shared with future ports of the engine. */
@@ -15,6 +15,15 @@ interface Fixture {
   expected: {
     damage: { attacker: string; defender: string; damage: number }[];
     hitsToDefeat: { attacker: string; defender: string; result: HitsToDefeat }[];
+    /** Optional: time to defeat in both directions and the winners by hits and by time. */
+    timeToDefeat?: {
+      attacker: string;
+      defender: string;
+      time: number;
+      backwardTime: number;
+      winnerByHits: Winner;
+      winnerByTime: Winner;
+    }[];
   };
 }
 
@@ -42,6 +51,18 @@ describe.each(fixtures)('fixture $name', (fixture) => {
     for (const { attacker, defender, result } of fixture.expected.hitsToDefeat) {
       const damage = damageBreakdown(get(attacker), get(defender), fixture.channels, fixture.coverage).damage;
       expect(hitsToDefeat(damage, get(defender)), `${attacker} → ${defender}`).toEqual(result);
+    }
+  });
+
+  it('matches expected time to defeat and winners', () => {
+    for (const expected of fixture.expected.timeToDefeat ?? []) {
+      const result = matchup(get(expected.attacker), get(expected.defender), fixture.channels, fixture.coverage);
+      const label = `${expected.attacker} vs ${expected.defender}`;
+      // Times are stored rounded to 6 decimals; winners are compared exactly.
+      expect(timeToDefeat(result), label).toBeCloseTo(expected.time, 6);
+      expect(timeToDefeat(result, 'backward'), label).toBeCloseTo(expected.backwardTime, 6);
+      expect(winnerBy(result, 'hits'), label).toBe(expected.winnerByHits);
+      expect(winnerBy(result, 'time'), label).toBe(expected.winnerByTime);
     }
   });
 });

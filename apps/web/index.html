@@ -3,16 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Métrix — Game Balance Lab: a local-first balance lab for game designers." />
+    <title>Métrix — Game Balance Lab | Free balance tool for game designers</title>
+    <meta
+      name="description"
+      content="Free game balance tool for MOBAs, shooters, card, strategy and board games. Import your CSV catalog and see who beats whom, and why. Runs in your browser."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="TreyNet Codes" />
     <meta name="theme-color" content="#0d1117" />
-    <title>Métrix — Game Balance Lab</title>
+    <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://javier-treynetcodes.github.io/metrix-game-balance-lab/" />
+
+    <!-- Open Graph: preview when the link is shared on social networks and chat apps. -->
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Métrix" />
     <meta property="og:title" content="Métrix — Game Balance Lab" />
     <meta property="og:description" content="Balance your game with data, not guesswork. Import your catalog, see who beats whom and why, tweak and export. Any genre, runs in your browser." />
     <meta property="og:url" content="https://javier-treynetcodes.github.io/metrix-game-balance-lab/" />
     <meta property="og:image" content="https://javier-treynetcodes.github.io/metrix-game-balance-lab/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Métrix: balance your game with data, not guesswork, next to a duel matrix" />
@@ -20,11 +30,65 @@
     <meta name="twitter:title" content="Métrix — Game Balance Lab" />
     <meta name="twitter:description" content="Balance your game with data, not guesswork. Any genre, runs in your browser." />
     <meta name="twitter:image" content="https://javier-treynetcodes.github.io/metrix-game-balance-lab/og-image.png" />
+    <meta name="twitter:image:alt" content="Métrix: balance your game with data, not guesswork, next to a duel matrix" />
+
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+
+    <!-- Structured data: lets search engines show Métrix as a free web application. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Métrix — Game Balance Lab",
+        "alternateName": "Métrix",
+        "url": "https://javier-treynetcodes.github.io/metrix-game-balance-lab/",
+        "description": "Free game balance tool for designers of any genre. Import your catalog as CSV, compare every duel, see damage, armor and complements, tweak values and export the result. Everything runs in the browser; data never leaves your device.",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Game design and balancing",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires JavaScript",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "image": "https://javier-treynetcodes.github.io/metrix-game-balance-lab/og-image.png",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "CSV import with a downloadable template",
+          "Duel matrix with win-loss records",
+          "Head-to-head comparison with every calculation shown",
+          "Two damage channels, mixed attacks and armor coverage",
+          "Class complements, attack speed and movement",
+          "CSV export that keeps your file's layout"
+        ],
+        "author": { "@type": "Organization", "name": "TreyNet Codes" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Static description for crawlers and browsers without JavaScript. It is inside noscript so
+      visitors with JavaScript never see it flash before the app loads.
+    -->
+    <noscript>
+      <main style="max-width: 46rem; margin: 3rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; color: #e6edf3; background: #0d1117; line-height: 1.6">
+        <h1>Métrix — Game Balance Lab</h1>
+        <p>
+          A free balance lab for game designers working in any genre: MOBAs, shooters, card games, strategy, RPGs and
+          board games. Import the catalog of your game (characters, units, cards, weapons) as a CSV file and Métrix shows
+          what spreadsheets hide: who beats whom and why, which attacks are fully blocked, and how items change the
+          balance.
+        </p>
+        <h2>What you can do</h2>
+        <ul>
+          <li>Compare every duel in a matrix, ranked by hits, time, damage or trade.</li>
+          <li>See every calculation in a head-to-head view and try changes before applying them.</li>
+          <li>Model two damage channels, mixed attacks, armor coverage, class complements, attack speed and movement.</li>
+          <li>Export your catalog back to CSV with the same columns and order.</li>
+        </ul>
+        <p>Everything runs in your browser: your data never leaves your device. Métrix needs JavaScript to run.</p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

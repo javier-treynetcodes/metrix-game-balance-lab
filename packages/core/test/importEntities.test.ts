@@ -24,6 +24,8 @@ describe('importEntities', () => {
       class: 'tank',
       cost: 45,
       hp: 600,
+      speed: 95,
+      move: 90,
       atk: { channel1: 30, channel2: 0 },
       def: { channel1: 30, channel2: 10 },
       tags: { role: 'frontline' },
@@ -141,6 +143,62 @@ describe('importEntities', () => {
     expect(issue(result, 'unused-complement')?.message).toContain('"mage"');
   });
 
+  it('reads speed and move of units and the bonuses of complements', () => {
+    const result = importEntities(
+      'id,kind,name,class,hp,speed,move,atk:1\na,unit,A,tank,10,90,85,1\nb,unit,B,tank,10,120,100,1\nboots,complement,Boots,tank,,10,,\nring,complement,Ring,tank,,,5,1',
+    );
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+    expect(result.entities.map(({ speed, move }) => [speed, move])).toEqual([
+      [90, 85],
+      [120, 100],
+    ]);
+    expect(result.complements.map(({ speed, move }) => [speed, move])).toEqual([
+      [10, undefined],
+      [undefined, 5],
+    ]);
+  });
+
+  it('ignores speed and move when the whole column is empty', () => {
+    const result = importEntities('id,name,speed,move\na,A,,\nb,B,,');
+    expect(result.ok).toBe(true);
+    expect(result.entities.every((entity) => entity.speed === undefined && entity.move === undefined)).toBe(true);
+  });
+
+  it('requires speed and move on every unit once the column is used', () => {
+    const result = importEntities('id,kind,name,class,speed,move\na,unit,A,t,100,90\nb,unit,B,t,,\nc,complement,C,t,,');
+    expect(result.ok).toBe(false);
+    expect(result.issues.filter((entry) => entry.code === 'missing-speed').map((entry) => [entry.column, entry.lines])).toEqual([
+      ['speed', [3]],
+      ['move', [3]],
+    ]);
+  });
+
+  it('accepts speeds of 1 or more and warns about very high ones', () => {
+    expect(issue(importEntities('id,name,speed\na,A,0'), 'speed-below-one')).toMatchObject({ column: 'speed', lines: [2] });
+    expect(issue(importEntities('id,name,move\na,A,-5'), 'not-a-whole-number')?.column).toBe('move');
+    const high = importEntities('id,name,speed,move\na,A,1250,100\nb,B,100,400');
+    expect(high.ok).toBe(true);
+    expect(high.issues.filter((entry) => entry.code === 'high-speed').map((entry) => [entry.column, entry.lines])).toEqual([
+      ['speed', [2]],
+      ['move', [3]],
+    ]);
+  });
+
+  it('warns when complements add speed or move that no unit has', () => {
+    const result = importEntities('id,kind,name,class,speed,move\na,unit,A,t,,\nc,complement,C,t,10,5');
+    expect(result.ok).toBe(true);
+    expect(result.issues.filter((entry) => entry.code === 'unused-speed-bonus').map((entry) => entry.column)).toEqual([
+      'speed',
+      'move',
+    ]);
+  });
+
+  it('keeps speed and move out of rule rows and points rate users to speed', () => {
+    expect(issue(importEntities('id,kind,name,speed,def:1\na,unit,A,100,1\n1,rule,One,100,50'), 'rule-field')?.column).toBe('speed');
+    expect(issue(importEntities('id,name,rate\na,A,1'), 'rate-not-used')?.message).toContain('"speed"');
+  });
+
   it('reads the armor coverage from rule rows', () => {
     const result = importEntities('id,kind,name,atk:physical,def:physical,atk:magic,def:magic\na,unit,A,1,1,1,1\nphysical,rule,Physical armor,,100,,20\nMagic,rule,Magic armor,,,,90');
     expect(result.ok).toBe(true);
@@ -167,6 +225,7 @@ describe('importEntities', () => {
 
   it('reports short rows even when they miss the kind cell', () => {
     expect(codes(importEntities('id,name,range,kind\na,A'))).toEqual(['row-too-short']);
+    expect(codes(importEntities('id,name,speed\na,A'))).toEqual(['row-too-short']);
   });
 
   it('accepts whole numbers of 0 or more only', () => {

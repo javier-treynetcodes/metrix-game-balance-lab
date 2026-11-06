@@ -12,7 +12,7 @@ const roundTrip = (text: string) => {
 describe('exportCsv', () => {
   it('gives back the same catalog when imported again', () => {
     const { first, exported, second } = roundTrip(CSV_TEMPLATE);
-    expect(exported.startsWith('﻿id,kind,name,character,class,cost,hp,atk:channel1,def:channel1')).toBe(true);
+    expect(exported.startsWith('﻿id,kind,name,character,class,cost,hp,speed,move,atk:channel1,def:channel1')).toBe(true);
     expect(exported).toBe(`\uFEFF${CSV_TEMPLATE.trimEnd().split('\n').join('\r\n')}\r\n`);
     expect(second.ok).toBe(true);
     expect(second.channels).toEqual(first.channels);
@@ -74,6 +74,14 @@ describe('exportCsv', () => {
     expect(second.complements).toEqual(first.complements);
     const headerless = exportCsv({ delimiter: ',', headers: ['id', 'kind', 'name', 'class', ''] }, [], [], [complement('x')]);
     expect(headerless.split('\r\n')[1]).toBe('x,complement,x,tank,');
+  });
+
+  it('writes speed and move of units and complements', () => {
+    const source = 'id,kind,name,class,hp,speed,move,atk:1\na,unit,A,tank,10,90,85,1\nc,complement,C,tank,,10,,';
+    const { exported, first, second } = roundTrip(source);
+    expect(exported.split('\r\n').slice(1, 3)).toEqual(['a,unit,A,tank,10,90,85,1', 'c,complement,C,tank,,10,,']);
+    expect(second.entities).toEqual(first.entities);
+    expect(second.complements).toEqual(first.complements);
   });
 
   it('writes one rule row per armor when the coverage is not the default', () => {

@@ -5,8 +5,19 @@
 import type { Channel } from '@metrix/core';
 import { StatCode } from './StatCode';
 
-/** The damage rules in five short points and one worked example, all with whole numbers. */
-export function HowDamageWorks({ channels, open = false }: { channels: readonly Channel[]; open?: boolean }) {
+/** Props of {@link HowDamageWorks}. */
+interface HowDamageWorksProps {
+  channels: readonly Channel[];
+  /** Starts expanded. */
+  open?: boolean;
+  /** True when the catalog has attack speed: explains time to defeat. */
+  usesSpeed?: boolean;
+  /** True when the catalog has move speed: explains that it is informative. */
+  usesMove?: boolean;
+}
+
+/** The damage rules in short points and one worked example, all with whole numbers. */
+export function HowDamageWorks({ channels, open = false, usesSpeed = false, usesMove = false }: HowDamageWorksProps) {
   const [one, two] = channels;
   if (!one || !two) return null;
   const code = (kind: 'atk' | 'def', key: string) => <StatCode kind={kind} channels={channels} channelKey={key} />;
@@ -33,6 +44,17 @@ export function HowDamageWorks({ channels, open = false }: { channels: readonly 
           <strong>Complements</strong> add attack or armor to every character of their class. Compare base values and
           values with complements in Duels and Versus.
         </li>
+        {usesSpeed && (
+          <li>
+            <strong>Attack speed</strong> is a percentage where 100 is normal. Time to defeat = hits × 100 ÷ speed: 20
+            hits at 125 % take 16.0. Fewer wins.
+          </li>
+        )}
+        {usesMove && (
+          <li>
+            <strong>Move speed</strong> never changes who wins. It only tells who can chase the other down or escape.
+          </li>
+        )}
       </ol>
       <div className="example">
         <p className="muted small">

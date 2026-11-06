@@ -13,6 +13,10 @@ export interface CatalogSchema {
   hasClass: boolean;
   hasCost: boolean;
   hasHp: boolean;
+  /** True when the file has a `speed` column (attack speed, a percentage where 100 is normal). */
+  hasSpeed: boolean;
+  /** True when the file has a `move` column (move speed, informative only). */
+  hasMove: boolean;
   tagKeys: string[];
   statKeys: string[];
 }
@@ -40,6 +44,8 @@ export function catalogSchema(catalog: Catalog): CatalogSchema {
     hasClass: has('class'),
     hasCost: has('cost'),
     hasHp: has('hp'),
+    hasSpeed: has('speed'),
+    hasMove: has('move'),
     tagKeys: roles.flatMap(({ role, index }) => (role?.kind === 'tag' && !keptAsText(index) ? [role.key] : [])),
     statKeys: roles.flatMap(({ role, index }) => (role?.kind === 'stat' && !keptAsText(index) ? [role.key] : [])),
   };
@@ -65,7 +71,7 @@ export function displayName(entity: Entity): string {
   return entity.character ? `${entity.character} · ${entity.name}` : entity.name;
 }
 
-/** A blank entity with every field of the file at 0, ready to be edited. */
+/** A blank entity with every field of the file at 0 (100 hp, 100% speed and move), ready to be edited. */
 export function blankEntity(schema: CatalogSchema): Entity {
   const zeros = (keys: string[]) => Object.fromEntries(keys.map((key) => [key, 0]));
   const entity: Entity = {
@@ -79,5 +85,8 @@ export function blankEntity(schema: CatalogSchema): Entity {
   };
   if (schema.hasHp) entity.hp = 100;
   if (schema.hasCost) entity.cost = 0;
+  // Speed and move are percentages: a new entity starts at the normal 100.
+  if (schema.hasSpeed) entity.speed = 100;
+  if (schema.hasMove) entity.move = 100;
   return entity;
 }

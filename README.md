@@ -210,4 +210,4 @@ npm run dev         # web app at http://localhost:5173/metrix-game-balance-lab/
 npm run check       # lint, type check, tests (100% coverage required) and build, as in CI
 ```
 
-`dev` is the working branch; every push to `prod` deploys the web app to GitHub Pages. Code conventions are in [CLAUDE.md](CLAUDE.md).
+`dev` is the working branch; every push to `prod` deploys the web app to GitHub Pages.

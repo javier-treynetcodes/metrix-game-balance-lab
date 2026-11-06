@@ -18,8 +18,12 @@
   --color-changed: rgba(245, 196, 81, 0.12);
   --gradient-mixed: linear-gradient(135deg, var(--color-cyan), var(--color-violet));
   /* Motion: one duration and easing for every hover and focus change, so nothing jumps. */
-  --motion-duration: 200ms;
-  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Long enough to see the change, short enough to never feel slow. */
+  --motion-duration: 240ms;
+  /* Symmetric ease-in-out: the change is spread over the whole transition. */
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Small delay before a hover effect starts, so passing the cursor over does not flicker. */
+  --motion-hover-delay: 60ms;
   --transition-interactive:
     color var(--motion-duration) var(--motion-ease),
     background-color var(--motion-duration) var(--motion-ease),
@@ -90,6 +94,25 @@ html {
 .field select,
 .percent-field input {
   transition: var(--transition-interactive);
+}
+
+/*
+ * The delay only applies while entering hover. The base rules above have none,
+ * so leaving hover goes back at once.
+ */
+.button:hover:not(:disabled),
+.tab:hover,
+.sort-button:hover,
+.icon-button:hover,
+.link-button:hover,
+.genre-card:hover,
+.cell-button:hover,
+.cell:hover,
+.header-link:hover,
+.sponsor-button:hover,
+.menu-item:hover,
+.segmented label:hover {
+  transition-delay: var(--motion-hover-delay);
 }
 
 body {
@@ -332,6 +355,58 @@ h3 {
   background: transparent;
 }
 
+/*
+ * Power button: "off" at rest (transparent, plain cyan border and text) and "on" on hover
+ * or keyboard focus (filled cyan with a glow), inviting the user to click.
+ * Used for the main call to action of the import screen.
+ */
+.button-power {
+  background: transparent;
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+  /* 2px keeps the rounded corners as thick as the straight edges; 1px corners look thinner. */
+  border-width: 2px;
+  /* 1px less padding on each side, so the button keeps the same size as with a 1px border. */
+  padding: calc(var(--space-2) - 1px) calc(var(--space-3) - 1px);
+}
+
+.button-power:hover:not(:disabled),
+.button-power:focus-visible:not(:disabled) {
+  background: var(--color-cyan);
+  border-color: var(--color-cyan);
+  color: var(--color-bg-base);
+  box-shadow:
+    0 0 24px -4px rgba(0, 240, 255, 0.6),
+    0 0 48px -12px rgba(0, 240, 255, 0.45);
+  /*
+   * Same timing as every other element, except the text: it turns dark once the fill is
+   * almost bright, so the label never matches the background halfway and stays readable.
+   * Order: color, background-color, border-color, box-shadow, outline-color, transform, opacity.
+   */
+  transition-duration:
+    calc(var(--motion-duration) * 0.6),
+    var(--motion-duration),
+    var(--motion-duration),
+    var(--motion-duration),
+    var(--motion-duration),
+    var(--motion-duration),
+    var(--motion-duration);
+  transition-delay:
+    calc(var(--motion-hover-delay) + var(--motion-duration) * 0.4),
+    var(--motion-hover-delay),
+    var(--motion-hover-delay),
+    var(--motion-hover-delay),
+    0ms,
+    0ms,
+    0ms;
+}
+
+/* Keyboard focus lights the button up and keeps a visible focus ring around it. */
+.button-power:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 3px;
+}
+
 .field {
   display: grid;
   gap: var(--space-1);
@@ -394,6 +469,27 @@ h3 {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
+}
+
+/*
+ * Template buttons: three equal columns, so they read as one group; one column on narrow screens.
+ * The text beside them gives way first (it wraps), so the buttons stay on the same line.
+ */
+.template-row > :first-child {
+  flex: 1 1 16rem;
+}
+
+.template-row .button-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .template-row .button-row {
+    flex-basis: 100%;
+    grid-template-columns: 1fr;
+  }
 }
 
 .import-report {
@@ -1005,7 +1101,6 @@ h3 {
 
 .genre-card:hover {
   border-color: var(--color-cyan);
-  transform: translateY(-2px);
 }
 
 .genre-name {

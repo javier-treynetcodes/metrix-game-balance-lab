@@ -109,7 +109,7 @@ export function ImportPanel({ onImported, onCancel, legacyNotice = false }: Impo
       >
         <p className="dropzone-title">{busy ? 'Checking your file…' : 'Drag your CSV file here'}</p>
         <p className="muted">or</p>
-        <button type="button" className="button button-primary" onClick={() => inputRef.current?.click()} disabled={busy}>
+        <button type="button" className="button button-power" onClick={() => inputRef.current?.click()} disabled={busy}>
           Choose CSV file
         </button>
         <input

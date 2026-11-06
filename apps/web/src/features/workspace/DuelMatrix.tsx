@@ -44,7 +44,7 @@ interface DuelMatrixProps {
 
 /** How decisive a duel is, from 1 (narrow) to 3 (crushing), to set the color strength. */
 function strength(result: Matchup, metric: Metric): 1 | 2 | 3 {
-  let ratio = 0;
+  let ratio: number;
   if (metric === 'hits') {
     const f = result.forwardHits.kind === 'defeats' ? result.forwardHits.hits : undefined;
     const b = result.backwardHits.kind === 'defeats' ? result.backwardHits.hits : undefined;

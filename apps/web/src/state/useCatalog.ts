@@ -120,14 +120,41 @@ export function useCatalog() {
     [edit],
   );
 
+  /** Sets the share of `attackKey` that the armor of `armorKey` stops, as a whole percentage. */
+  const setCoverage = useCallback(
+    (armorKey: string, attackKey: string, percent: number) =>
+      edit((current) => ({
+        ...current,
+        coverage: { ...current.coverage, [armorKey]: { ...current.coverage[armorKey], [attackKey]: percent } },
+      })),
+    [edit],
+  );
+
+  /** Back to the default coverage (each armor stops only its channel), as one undo step. */
+  const resetCoverage = useCallback(() => edit((current) => ({ ...current, coverage: {} })), [edit]);
+
   const revertAll = useCallback(
     () =>
       edit((current) => ({
         ...current,
         rows: current.original,
         channels: current.channels.map((channel) => ({ ...channel, label: labelFor(channel.key) })),
+        coverage: current.originalCoverage,
       })),
     [edit],
+  );
+
+  /** Switches a complement on or off. A viewing setting: no undo step and not exported. */
+  const toggleComplement = useCallback(
+    (id: string) =>
+      setHistory((current) => {
+        if (!current.catalog) return current;
+        const inactive = new Set(current.catalog.inactiveComplements);
+        if (inactive.has(id)) inactive.delete(id);
+        else inactive.add(id);
+        return { ...current, catalog: { ...current.catalog, inactiveComplements: [...inactive] } };
+      }),
+    [],
   );
 
   const setGenre = useCallback(
@@ -161,7 +188,10 @@ export function useCatalog() {
     duplicateEntity,
     deleteEntity,
     renameChannel,
+    setCoverage,
+    resetCoverage,
     revertAll,
+    toggleComplement,
     setGenre,
     markExported,
     dismissWarnings,

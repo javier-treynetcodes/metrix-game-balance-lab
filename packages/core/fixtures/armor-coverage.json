@@ -1,0 +1,241 @@
+{
+  "name": "armor-coverage",
+  "description": "Mixed attacks and armor coverage: each armor stops a share of both channels, the defense is rounded down once, an attacker can be fully stopped and an entity without attack deals nothing.",
+  "channels": [
+    {
+      "key": "physical",
+      "label": "Physical"
+    },
+    {
+      "key": "magic",
+      "label": "Magic"
+    }
+  ],
+  "coverage": {
+    "physical": {
+      "physical": 100,
+      "magic": 30
+    },
+    "magic": {
+      "physical": 15,
+      "magic": 100
+    }
+  },
+  "entities": [
+    {
+      "id": "knight",
+      "name": "Plated Knight",
+      "hp": 300,
+      "atk": {
+        "physical": 40
+      },
+      "def": {
+        "physical": 25,
+        "magic": 0
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "monk",
+      "name": "Rune Monk",
+      "hp": 260,
+      "atk": {
+        "physical": 18,
+        "magic": 22
+      },
+      "def": {
+        "physical": 10,
+        "magic": 20
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "seer",
+      "name": "Glass Seer",
+      "hp": 180,
+      "atk": {
+        "magic": 50
+      },
+      "def": {
+        "physical": 0,
+        "magic": 7
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    },
+    {
+      "id": "totem",
+      "name": "Stone Totem",
+      "hp": 400,
+      "atk": {},
+      "def": {
+        "physical": 60,
+        "magic": 60
+      },
+      "tags": {},
+      "stats": {},
+      "extra": {}
+    }
+  ],
+  "expected": {
+    "damage": [
+      {
+        "attacker": "knight",
+        "defender": "monk",
+        "damage": 27
+      },
+      {
+        "attacker": "knight",
+        "defender": "seer",
+        "damage": 39
+      },
+      {
+        "attacker": "knight",
+        "defender": "totem",
+        "damage": 0
+      },
+      {
+        "attacker": "monk",
+        "defender": "knight",
+        "damage": 15
+      },
+      {
+        "attacker": "monk",
+        "defender": "seer",
+        "damage": 32
+      },
+      {
+        "attacker": "monk",
+        "defender": "totem",
+        "damage": 0
+      },
+      {
+        "attacker": "seer",
+        "defender": "knight",
+        "damage": 43
+      },
+      {
+        "attacker": "seer",
+        "defender": "monk",
+        "damage": 27
+      },
+      {
+        "attacker": "seer",
+        "defender": "totem",
+        "damage": 0
+      },
+      {
+        "attacker": "totem",
+        "defender": "knight",
+        "damage": 0
+      },
+      {
+        "attacker": "totem",
+        "defender": "monk",
+        "damage": 0
+      },
+      {
+        "attacker": "totem",
+        "defender": "seer",
+        "damage": 0
+      }
+    ],
+    "hitsToDefeat": [
+      {
+        "attacker": "knight",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 10
+        }
+      },
+      {
+        "attacker": "knight",
+        "defender": "seer",
+        "result": {
+          "kind": "defeats",
+          "hits": 5
+        }
+      },
+      {
+        "attacker": "knight",
+        "defender": "totem",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "knight",
+        "result": {
+          "kind": "defeats",
+          "hits": 20
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "seer",
+        "result": {
+          "kind": "defeats",
+          "hits": 6
+        }
+      },
+      {
+        "attacker": "monk",
+        "defender": "totem",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "seer",
+        "defender": "knight",
+        "result": {
+          "kind": "defeats",
+          "hits": 7
+        }
+      },
+      {
+        "attacker": "seer",
+        "defender": "monk",
+        "result": {
+          "kind": "defeats",
+          "hits": 10
+        }
+      },
+      {
+        "attacker": "seer",
+        "defender": "totem",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "totem",
+        "defender": "knight",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "totem",
+        "defender": "monk",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      },
+      {
+        "attacker": "totem",
+        "defender": "seer",
+        "result": {
+          "kind": "cannot-damage"
+        }
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * @file Names, explanations and formatting of the four comparison metrics.
+ * @file Names, explanations and formatting of the comparison metrics.
  */
 
 import type { HitsToDefeat, Metric } from '@metrix/core';
@@ -10,6 +10,8 @@ export function metricName(metric: Metric, genre: GenreProfile): string {
   switch (metric) {
     case 'hits':
       return `${capitalize(genre.hit)}s to defeat`;
+    case 'time':
+      return 'Time to defeat';
     case 'damage':
       return `Damage per ${genre.hit}`;
     case 'trade':
@@ -24,6 +26,8 @@ export function metricHint(metric: Metric, genre: GenreProfile): string {
   switch (metric) {
     case 'hits':
       return `How many ${genre.hit}s the row entity needs to bring the column entity to 0 hp. Fewer wins.`;
+    case 'time':
+      return `${capitalize(genre.hit)}s to defeat divided by the row entity's attack speed, in ${genre.hit}s at normal speed (100%). Less wins.`;
     case 'damage':
       return `Damage the row entity deals with one ${genre.hit}, after the column entity's defense. More wins.`;
     case 'trade':
@@ -39,9 +43,24 @@ export function formatHits(result: HitsToDefeat, genre: GenreProfile): string {
   return result.kind === 'cannot-damage' ? "Can't damage" : 'No hp';
 }
 
+/** Time to defeat with one decimal: "16.0". */
+export function formatTime(value: number): string {
+  return value.toFixed(1);
+}
+
+/** "125%": a speed or move percentage. */
+export function formatPercent(value: number): string {
+  return `${value}%`;
+}
+
 /** Signed number for trades: "+12", "-7" (with a true minus sign) or "0". */
 export function formatSigned(value: number): string {
   return value > 0 ? `+${value}` : value < 0 ? `−${Math.abs(value)}` : '0';
+}
+
+/** "20 − 24 = −4": the trade of one side worked out from the damage it deals and receives. */
+export function formatTrade(dealt: number, received: number): string {
+  return `${dealt} − ${received} = ${formatSigned(dealt - received)}`;
 }
 
 /** Same text with its first letter in upper case. */

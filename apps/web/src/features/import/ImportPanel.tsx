@@ -92,8 +92,9 @@ export function ImportPanel({ onImported, onCancel, legacyNotice = false }: Impo
 
       {legacyNotice && (
         <p className="legacy-notice">
-          Métrix now uses whole numbers, two damage channels and hybrid attacks. Your previous catalog was saved in the old
-          format: import your file again (or start from the new template) to keep working.
+          Métrix now supports classes, complements and armor coverage, and attacks on both channels replace hybrid
+          attacks. Your previous catalog was saved in the old format: import your file again (or start from the new
+          template) to keep working.
         </p>
       )}
 
@@ -108,7 +109,7 @@ export function ImportPanel({ onImported, onCancel, legacyNotice = false }: Impo
       >
         <p className="dropzone-title">{busy ? 'Checking your file…' : 'Drag your CSV file here'}</p>
         <p className="muted">or</p>
-        <button type="button" className="button button-primary" onClick={() => inputRef.current?.click()} disabled={busy}>
+        <button type="button" className="button button-power" onClick={() => inputRef.current?.click()} disabled={busy}>
           Choose CSV file
         </button>
         <input

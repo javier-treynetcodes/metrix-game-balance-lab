@@ -3,10 +3,14 @@
  */
 
 import type { Genre } from '@metrix/core';
+import { withSpeed } from '../../lib/genres';
 import { GENRES, metricNameFor } from './genreText';
 
-/** First question after importing: the genre decides how duels are ranked and explained. */
-export function GenrePicker({ onPick }: { onPick: (genre: Genre) => void }) {
+/**
+ * First question after importing: the genre decides how duels are ranked and explained.
+ * `usesSpeed` shows the measure each genre will really use with this catalog.
+ */
+export function GenrePicker({ onPick, usesSpeed = false }: { onPick: (genre: Genre) => void; usesSpeed?: boolean }) {
   return (
     <section className="panel genre-picker" aria-labelledby="genre-title">
       <h2 id="genre-title">What kind of game is this?</h2>
@@ -15,7 +19,7 @@ export function GenrePicker({ onPick }: { onPick: (genre: Genre) => void }) {
         the same, and you can change it at any time.
       </p>
       <ul className="genre-grid">
-        {GENRES.map((genre) => (
+        {GENRES.map((base) => usesSpeed ? withSpeed(base) : base).map((genre) => (
           <li key={genre.id}>
             <button type="button" className="genre-card" onClick={() => onPick(genre.id)}>
               <span className="genre-name">{genre.name}</span>
